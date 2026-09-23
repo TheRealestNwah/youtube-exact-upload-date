@@ -38,6 +38,8 @@
     "ytd-rich-grid-media",
     "ytd-compact-video-renderer",
     "ytd-playlist-video-renderer",
+    "ytd-playlist-panel-video-renderer",
+    "ytd-radio-renderer",
     "yt-lockup-view-model",
   ].join(",");
 
@@ -261,8 +263,39 @@
     return extractVideoId(link?.getAttribute("href"), globalThis.location?.href);
   }
 
+  function findListingTimestampCandidates(documentRoot) {
+    const candidates = new Set(
+      documentRoot.querySelectorAll(METADATA_ITEM_SELECTOR),
+    );
+
+    for (const card of documentRoot.querySelectorAll(
+      VIDEO_CONTAINER_SELECTOR,
+    )) {
+      for (const element of card.querySelectorAll(
+        "span, yt-formatted-string",
+      )) {
+        if (element.closest("h1, h2, h3")) {
+          continue;
+        }
+
+        const accessibleText = element.getAttribute("aria-label");
+        if (
+          isRelativeTime(element.textContent) ||
+          isRelativeTime(accessibleText)
+        ) {
+          candidates.add(element);
+        }
+      }
+    }
+
+    return candidates;
+  }
+
   function updateListingItem(element) {
-    if (!isRelativeTime(element.textContent)) {
+    if (
+      !isRelativeTime(element.textContent) &&
+      !isRelativeTime(element.getAttribute("aria-label"))
+    ) {
       return;
     }
 
@@ -308,9 +341,7 @@
 
   function scanPage(documentRoot = document) {
     updateWatchPage(documentRoot);
-    for (const element of documentRoot.querySelectorAll(
-      METADATA_ITEM_SELECTOR,
-    )) {
+    for (const element of findListingTimestampCandidates(documentRoot)) {
       updateListingItem(element);
     }
   }

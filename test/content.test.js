@@ -201,3 +201,45 @@ test("replaces the Watch Later playlist timestamp", async () => {
     globalThis.location = originalLocation;
   }
 });
+
+test("discovers timestamps in the current Home and Subscriptions card layout", async () => {
+  const dom = new JSDOM(
+    `<!doctype html>
+      <yt-lockup-view-model class="lockup">
+        <h3>
+          <a href="/watch?v=GridVideo01A"><span>Example video</span></a>
+        </h3>
+        <div class="new-grid-metadata-layout">
+          <span class="ytAttributedStringLinkInheritColor">Creator</span>
+          <span class="ytAttributedStringLinkInheritColor" aria-label="24 minutes ago">
+            24 min ago
+          </span>
+        </div>
+      </yt-lockup-view-model>`,
+    { url: "https://www.youtube.com/feed/subscriptions" },
+  );
+  const originalFetch = globalThis.fetch;
+  const originalLocation = globalThis.location;
+  globalThis.location = dom.window.location;
+  globalThis.fetch = async (url) => {
+    assert.equal(new URL(url).searchParams.get("v"), "GridVideo01A");
+    return {
+      ok: true,
+      text: async () =>
+        '<meta itemprop="uploadDate" content="2026-09-23T09:15:00Z">',
+    };
+  };
+
+  try {
+    scanPage(dom.window.document);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const items = dom.window.document.querySelectorAll(
+      ".ytAttributedStringLinkInheritColor",
+    );
+    assert.equal(items[0].textContent, "Creator");
+    assert.equal(items[1].textContent, "Sept. 23 2026");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.location = originalLocation;
+  }
+});
