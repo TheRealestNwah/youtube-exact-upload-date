@@ -20,6 +20,8 @@
     /^(?:(?:premiered|streamed)\s+)?(?:\d+(?:[.,]\d+)?|a|an|one)\s*(?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\s+ago$/i;
   const RELATIVE_TIME_SHORT =
     /^\d+(?:[.,]\d+)?\s*(?:s|m|h|d|w|mo|y)\s+ago$/i;
+  const RELATIVE_TIME_ABBREVIATED =
+    /^(?:(?:premiered|streamed)\s+)?(?:\d+(?:[.,]\d+)?|a|an|one)\s*(?:secs?|mins?|hrs?|wks?|mos?|yrs?)\s+ago$/i;
 
   const METADATA_ITEM_SELECTOR = [
     "#metadata-line .inline-metadata-item",
@@ -98,7 +100,8 @@
     const normalized = value.trim().replace(/\s+/g, " ");
     return (
       RELATIVE_TIME_LONG.test(normalized) ||
-      RELATIVE_TIME_SHORT.test(normalized)
+      RELATIVE_TIME_SHORT.test(normalized) ||
+      RELATIVE_TIME_ABBREVIATED.test(normalized)
     );
   }
 

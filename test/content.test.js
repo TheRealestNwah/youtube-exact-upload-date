@@ -49,6 +49,14 @@ test("recognizes YouTube compact relative timestamps", () => {
   assert.equal(isRelativeTime("9mo ago"), true);
 });
 
+test("recognizes YouTube abbreviated relative timestamps", () => {
+  assert.equal(isRelativeTime("18 min ago"), true);
+  assert.equal(isRelativeTime("1 hr ago"), true);
+  assert.equal(isRelativeTime("3 wks ago"), true);
+  assert.equal(isRelativeTime("2 mos ago"), true);
+  assert.equal(isRelativeTime("Streamed 1 yr ago"), true);
+});
+
 test("does not mistake views or exact dates for relative timestamps", () => {
   assert.equal(isRelativeTime("647K views"), false);
   assert.equal(isRelativeTime("Sept. 22 2026"), false);
@@ -164,7 +172,7 @@ test("replaces the Watch Later playlist timestamp", async () => {
         <div id="video-info">
           <span>Creator</span>
           <span>42K views</span>
-          <span>2 days ago</span>
+          <span>18 min ago</span>
         </div>
       </ytd-playlist-video-renderer>`,
     { url: "https://www.youtube.com/playlist?list=WL" },
