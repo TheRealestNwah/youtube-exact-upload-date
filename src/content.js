@@ -24,6 +24,7 @@
   const METADATA_ITEM_SELECTOR = [
     "#metadata-line .inline-metadata-item",
     "ytd-video-meta-block .inline-metadata-item",
+    "ytd-playlist-video-renderer #video-info span",
     "yt-content-metadata-view-model .yt-content-metadata-view-model-wiz__metadata-text",
     "yt-content-metadata-view-model span",
   ].join(",");
