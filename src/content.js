@@ -227,7 +227,9 @@
         url.searchParams.set("v", videoId);
         const response = await globalThis.fetch(url.href, {
           cache: "force-cache",
-          credentials: "omit",
+          // YouTube redirects cookie-less watch requests across origins in
+          // Firefox, which makes fetch reject before we can read the date.
+          credentials: "same-origin",
           referrerPolicy: "no-referrer",
         });
         if (!response.ok) {

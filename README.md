@@ -21,7 +21,7 @@ The extension reads the exact date already embedded in watch pages. For listing 
 
 Temporary add-ons disappear when Firefox closes. A permanent installation requires a signed build from Mozilla Add-ons.
 
-If an update changes host permissions, remove the temporary add-on and load `manifest.json` again so Firefox can grant the new permission. Reloading an already-installed add-on does not grant newly requested host access.
+After updating a temporary add-on, reload it in `about:debugging` and refresh the YouTube tab. Check the add-on's site-access permissions if it cannot run on YouTube. Private windows separately require **Run in Private Windows: Allow** in the add-on's settings.
 
 ## Develop and verify
 
@@ -29,13 +29,17 @@ If an update changes host permissions, remove the temporary add-on and load `man
 npm test
 npm run lint
 npm run build
+npm run test:firefox
+npm run test:firefox:live
 ```
 
 `npm run build` creates an unsigned ZIP in `web-ext-artifacts/`. Do not treat that ZIP as a permanently installable Firefox release; normal Firefox builds require Mozilla signing.
 
+The Firefox tests use disposable profiles and the real content script. `test:firefox` uses a local fixture; `test:firefox:live` verifies that dates actually change on YouTube search results and requires network access. Set `FIREFOX_BINARY` if Firefox is not in its default location. Test-only diagnostics go to a local loopback server and are not included in the packaged extension.
+
 ## Permissions and privacy
 
-The extension runs only on `www.youtube.com`. It changes upload-date text in the page and requests public YouTube watch pages without account cookies when it needs the exact date for a listing card. Those requests reveal the requested video IDs and ordinary connection information to YouTube, just like other YouTube page requests. The extension does not collect or store personal data, contact the extension author, or contact any third party.
+The extension runs only on `www.youtube.com`. It changes upload-date text and requests YouTube watch pages when it needs an exact date for a listing card. These same-site requests use the browser's existing YouTube cookies so that YouTube can return the page without a failing cross-site redirect. The extension does not read cookie values. Requests reveal the requested video IDs and ordinary connection information to YouTube, just like other YouTube page requests. The extension does not collect or store personal data, contact the extension author, or contact any third party.
 
 ## AI-assisted development
 

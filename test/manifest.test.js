@@ -9,7 +9,7 @@ const manifest = JSON.parse(
   readFileSync(resolve(__dirname, "..", "manifest.json"), "utf8"),
 );
 
-test("requests the YouTube host permission required by its content script", () => {
+test("limits explicit host access to the content script's YouTube site", () => {
   assert.deepEqual(manifest.host_permissions, ["https://www.youtube.com/*"]);
   assert.deepEqual(manifest.content_scripts[0].matches, manifest.host_permissions);
 });
