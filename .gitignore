@@ -1,0 +1,5 @@
+node_modules/
+.npm-cache/
+web-ext-artifacts/
+.web-extension-id
+
