@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Exact Upload Date for YouTube",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Replaces YouTube's relative upload times with clear, exact dates.",
   "homepage_url": "https://github.com/TheRealestNwah/youtube-exact-upload-date",
   "icons": {

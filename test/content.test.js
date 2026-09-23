@@ -139,7 +139,7 @@ test("replaces a listing timestamp using its YouTube watch page", async () => {
   globalThis.location = dom.window.location;
   globalThis.fetch = async (url, options) => {
     assert.equal(new URL(url).searchParams.get("v"), "ApSiQXGQ7Fs");
-    assert.equal(options.credentials, "omit");
+    assert.equal(options.credentials, "same-origin");
     assert.equal(options.referrerPolicy, "no-referrer");
     return {
       ok: true,

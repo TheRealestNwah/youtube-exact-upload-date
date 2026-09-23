@@ -28,3 +28,12 @@ jobs:
       - name: Run tests and extension lint
         run: npm run check
 
+      - name: Install Firefox
+        id: firefox
+        uses: browser-actions/setup-firefox@v1
+
+      - name: Test content script in Firefox with a cookie-requiring fixture
+        run: npm run test:firefox
+        env:
+          FIREFOX_BINARY: ${{ steps.firefox.outputs.firefox-path }}
+
