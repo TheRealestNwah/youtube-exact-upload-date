@@ -21,6 +21,8 @@ The extension reads the exact date already embedded in watch pages. For listing 
 
 Temporary add-ons disappear when Firefox closes. A permanent installation requires a signed build from Mozilla Add-ons.
 
+If an update changes host permissions, remove the temporary add-on and load `manifest.json` again so Firefox can grant the new permission. Reloading an already-installed add-on does not grant newly requested host access.
+
 ## Develop and verify
 
 ```sh
