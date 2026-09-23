@@ -153,3 +153,43 @@ test("replaces a listing timestamp using its YouTube watch page", async () => {
     globalThis.location = originalLocation;
   }
 });
+
+test("replaces the Watch Later playlist timestamp", async () => {
+  const dom = new JSDOM(
+    `<!doctype html>
+      <ytd-playlist-video-renderer>
+        <a id="video-title" href="/watch?v=WLVideo1234&list=WL&index=1">
+          A saved video
+        </a>
+        <div id="video-info">
+          <span>Creator</span>
+          <span>42K views</span>
+          <span>2 days ago</span>
+        </div>
+      </ytd-playlist-video-renderer>`,
+    { url: "https://www.youtube.com/playlist?list=WL" },
+  );
+  const originalFetch = globalThis.fetch;
+  const originalLocation = globalThis.location;
+  globalThis.location = dom.window.location;
+  globalThis.fetch = async (url) => {
+    assert.equal(new URL(url).searchParams.get("v"), "WLVideo1234");
+    return {
+      ok: true,
+      text: async () =>
+        '<meta itemprop="uploadDate" content="2026-09-21T08:00:00Z">',
+    };
+  };
+
+  try {
+    scanPage(dom.window.document);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const items = dom.window.document.querySelectorAll("#video-info span");
+    assert.equal(items[0].textContent, "Creator");
+    assert.equal(items[1].textContent, "42K views");
+    assert.equal(items[2].textContent, "Sept. 21 2026");
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.location = originalLocation;
+  }
+});
