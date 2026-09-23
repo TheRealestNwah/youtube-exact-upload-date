@@ -1,0 +1,19 @@
+{
+  "name": "youtube-exact-upload-date",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Firefox extension that replaces YouTube relative upload times with exact dates.",
+  "scripts": {
+    "test": "node --test",
+    "lint": "web-ext lint --source-dir . --ignore-files test package-lock.json .github README.md LICENSE",
+    "build": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest --ignore-files test package-lock.json .github README.md LICENSE",
+    "check": "npm run test && npm run lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1",
+    "web-ext": "^10.7.0"
+  }
+}
