@@ -50,7 +50,8 @@
     "a[href^='/live/']",
   ].join(",");
 
-  const MAX_CONCURRENT_REQUESTS = 3;
+  // Fill the visible Home row promptly without firing every card at once.
+  const MAX_CONCURRENT_REQUESTS = 8;
   const MAX_CACHE_ENTRIES = 500;
 
   const dateCache = new Map();
@@ -169,18 +170,15 @@
       return null;
     }
 
-    if (typeof DOMParser !== "undefined") {
-      const parsed = new DOMParser().parseFromString(html, "text/html");
-      const content = parsed
-        .querySelector(
-          'meta[itemprop="uploadDate"], meta[itemprop="datePublished"]',
-        )
-        ?.getAttribute("content");
-      const normalized = normalizeCalendarDate(content);
-      if (normalized) {
-        return normalized;
-      }
-    }
+    // This tag is normally in the first few KB of a watch response. A small
+    // text search avoids constructing a full DOM for every uncached video.
+    const firstTag = html.match(
+      /<meta\b[^>]*\bitemprop\s*=\s*(["'])(?:uploadDate|datePublished)\1[^>]*>/i,
+    )?.[0];
+    const firstDate = normalizeCalendarDate(
+      firstTag?.match(/\bcontent\s*=\s*(["'])([^"']+)\1/i)?.[2],
+    );
+    if (firstDate) return firstDate;
 
     const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
     for (const tag of metaTags) {
@@ -198,7 +196,18 @@
     const jsonDate = html.match(
       /["'](?:uploadDate|publishDate)["']\s*:\s*["'](\d{4}-\d{2}-\d{2})/i,
     )?.[1];
-    return normalizeCalendarDate(jsonDate);
+    const serializedDate = normalizeCalendarDate(jsonDate);
+    if (serializedDate) return serializedDate;
+
+    // Handle unusual but valid markup without slowing down normal responses.
+    if (typeof DOMParser !== "undefined") {
+      const parsed = new DOMParser().parseFromString(html, "text/html");
+      const content = parsed.querySelector(
+        'meta[itemprop="uploadDate"], meta[itemprop="datePublished"]',
+      )?.getAttribute("content");
+      return normalizeCalendarDate(content);
+    }
+    return null;
   }
 
   function readDocumentPublishedDate(documentRoot) {

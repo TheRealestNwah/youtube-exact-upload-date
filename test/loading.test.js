@@ -97,3 +97,43 @@ test("an old request cannot erase a recycled card's new loading state", async ()
     assert.equal(f.span.textContent, "Sept. 22 2026");
   } finally { f.dom.window.close(); }
 });
+
+test("a wide uncached Home row starts eight bounded lookups together", async () => {
+  const cards = Array.from({ length: 16 }, (_, index) =>
+    `<yt-lockup-view-model><a href="/watch?v=WideCard${String(index).padStart(4, "0")}">Video</a>` +
+    '<yt-content-metadata-view-model><span aria-label="3 hours ago">3h ago</span></yt-content-metadata-view-model></yt-lockup-view-model>',
+  ).join("");
+  const dom = new JSDOM(cards, {
+    url: "https://www.youtube.com/", runScripts: "outside-only",
+  });
+  const pending = [];
+  let active = 0;
+  let peak = 0;
+  dom.window.browser = { extension: { inIncognitoContext: false }, runtime: {
+    getManifest: () => ({ version: "1.0.4" }),
+    onMessage: { addListener: () => {} },
+    sendMessage: async () => null,
+  } };
+  dom.window.fetch = () => new Promise(resolve => {
+    active += 1;
+    peak = Math.max(peak, active);
+    pending.push(() => {
+      active -= 1;
+      resolve({ ok: true, status: 200, text: async () => '<meta itemprop="uploadDate" content="2026-09-23">' });
+    });
+  });
+  try {
+    dom.window.eval(source);
+    await tick();
+    assert.equal(pending.length, 8);
+    assert.equal(peak, 8);
+    pending.slice(0, 8).forEach(finish => finish());
+    await tick();
+    assert.equal(pending.length, 16);
+    assert.equal(peak, 8);
+    pending.slice(8).forEach(finish => finish());
+    await tick();
+    assert.equal([...dom.window.document.querySelectorAll("yt-content-metadata-view-model span")]
+      .filter(element => element.textContent === "Sept. 23 2026").length, 16);
+  } finally { dom.window.close(); }
+});

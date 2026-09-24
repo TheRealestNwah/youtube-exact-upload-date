@@ -1,6 +1,6 @@
 {
   "name": "youtube-exact-upload-date",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Firefox extension that replaces YouTube relative upload times with exact dates.",
   "scripts": {

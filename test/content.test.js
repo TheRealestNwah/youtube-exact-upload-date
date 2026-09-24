@@ -91,6 +91,23 @@ test("extracts datePublished metadata regardless of attribute order", () => {
   assert.equal(extractPublishedDate(html), "2009-10-24");
 });
 
+test("finds the first valid upload date when an earlier meta tag is invalid", () => {
+  const html = '<meta itemprop="uploadDate" content="not-a-date"><meta content="2026-09-23" itemprop="datePublished">';
+  assert.equal(extractPublishedDate(html), "2026-09-23");
+});
+
+test("reads a date from a large watch page without constructing a DOM", () => {
+  const previous = globalThis.DOMParser;
+  globalThis.DOMParser = class {
+    constructor() { throw new Error("DOMParser should not be used for a normal watch page"); }
+  };
+  try {
+    const html = '<html><head><meta itemprop="uploadDate" content="2026-09-23T10:00:00Z"></head><body>' +
+      'video page content '.repeat(100000) + '</body></html>';
+    assert.equal(extractPublishedDate(html), "2026-09-23");
+  } finally { globalThis.DOMParser = previous; }
+});
+
 test("falls back to serialized player data", () => {
   assert.equal(
     extractPublishedDate('{"publishDate":"2020-04-03"}'),
