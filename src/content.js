@@ -57,6 +57,33 @@
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
+  const diagnostics = {
+    scans: 0, requests: 0, datesFound: 0, redirects: 0,
+    httpErrors: 0, missingDates: 0, networkErrors: 0, parseErrors: 0,
+    lastHttpStatus: null, lastError: null, scanErrors: 0,
+  };
+
+  function getDiagnostics(documentRoot = document) {
+    const timestamps = [...findListingTimestampCandidates(documentRoot)].filter(
+      element => isRelativeTime(element.textContent) ||
+        isRelativeTime(element.getAttribute("aria-label")),
+    );
+    return {
+      version: globalThis.browser?.runtime?.getManifest().version ?? "test",
+      ...diagnostics,
+      relativeTimestamps: timestamps.length,
+      linkedTimestamps: timestamps.filter(findVideoIdForMetadata).length,
+      replaced: documentRoot.querySelectorAll("[data-youtube-exact-upload-date]").length,
+      activeRequests,
+      queuedRequests: requestQueue.length,
+    };
+  }
+
+  function safeErrorName(error) {
+    // Never expose error messages, which may contain URLs or account data.
+    return ["TypeError", "SyntaxError", "SecurityError", "AbortError", "TimeoutError"]
+      .includes(error?.name) ? error.name : "Error";
+  }
 
   function normalizeCalendarDate(value) {
     if (typeof value !== "string") {
@@ -222,6 +249,8 @@
     }
 
     const lookup = scheduleRequest(async () => {
+      diagnostics.requests += 1;
+      let parsing = false;
       try {
         const url = new URL("/watch", globalThis.location.origin);
         url.searchParams.set("v", videoId);
@@ -232,12 +261,23 @@
           credentials: "same-origin",
           referrerPolicy: "no-referrer",
         });
+        diagnostics.lastHttpStatus = response.status ?? null;
+        if (response.redirected) diagnostics.redirects += 1;
         if (!response.ok) {
+          diagnostics.httpErrors += 1;
           return null;
         }
 
-        return extractPublishedDate(await response.text());
-      } catch {
+        const html = await response.text();
+        parsing = true;
+        const date = extractPublishedDate(html);
+        if (date) diagnostics.datesFound += 1;
+        else diagnostics.missingDates += 1;
+        return date;
+      } catch (error) {
+        if (parsing) diagnostics.parseErrors += 1;
+        else diagnostics.networkErrors += 1;
+        diagnostics.lastError = safeErrorName(error);
         return null;
       }
     });
@@ -342,9 +382,19 @@
   }
 
   function scanPage(documentRoot = document) {
+    diagnostics.scans += 1;
     updateWatchPage(documentRoot);
     for (const element of findListingTimestampCandidates(documentRoot)) {
       updateListingItem(element);
+    }
+  }
+
+  function scanSafely() {
+    try {
+      scanPage(document);
+    } catch (error) {
+      diagnostics.scanErrors += 1;
+      diagnostics.lastError = safeErrorName(error);
     }
   }
 
@@ -355,12 +405,23 @@
 
     scanTimer = globalThis.setTimeout(() => {
       scanTimer = null;
-      scanPage(document);
+      scanSafely();
     }, 100);
   }
 
   function start() {
-    scanPage(document);
+    // Register before scanning so a startup failure can still be diagnosed.
+    globalThis.browser?.runtime?.onMessage.addListener(message => {
+      if (message?.type === "youtube-exact-upload-date:status") {
+        try {
+          return Promise.resolve(getDiagnostics(document));
+        } catch (error) {
+          return Promise.resolve({ ...diagnostics, statusError: safeErrorName(error) });
+        }
+      }
+      return undefined;
+    });
+    scanSafely();
 
     const observer = new MutationObserver(scheduleScan);
     observer.observe(document.documentElement, {
@@ -376,6 +437,7 @@
     extractPublishedDate,
     extractVideoId,
     formatExactDate,
+    getDiagnostics,
     isRelativeTime,
     normalizeCalendarDate,
     scanPage,
