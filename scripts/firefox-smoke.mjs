@@ -1,7 +1,7 @@
 // Runs the real content script in a disposable Firefox profile. No user profile
 // or account is accessed. Test-only telemetry is sent to a loopback HTTP server.
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import webExt from 'web-ext';
@@ -46,6 +46,9 @@ let runner;
 let timeout;
 try {
   await mkdir(path.join(directory, 'src'));
+  for (const file of ['status.html', 'status.css', 'status.js']) {
+    await copyFile(path.join(root, 'src', file), path.join(directory, 'src', file));
+  }
   let source = await readFile(path.join(root, 'src/content.js'), 'utf8');
   // Local fixture only: allow the production startup hostname guard to run.
   if (!live) source = source.replaceAll('youtube\\.com$', '127\\.0\\.0\\.1$|youtube\\.com$');
@@ -72,13 +75,16 @@ try {
     }, 2000);
   `);
   await writeFile(path.join(directory, 'background.js'), `
-    browser.runtime.onMessage.addListener(report => {
+    browser.runtime.onMessage.addListener(async (report) => {
+      if (report.type) return;
+      // Exercise the same permissions/query/message path as the real popup.
+      report.extensionStatus = await readStatus(browser);
       return fetch('${endpoint}/report', { method: 'POST', body: JSON.stringify(report) }).then(() => {});
     });
   `);
   const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
   delete manifest.icons;
-  manifest.background = { scripts: ['background.js'] };
+  manifest.background = { scripts: ['src/status.js', 'background.js'] };
   manifest.host_permissions.push('http://127.0.0.1/*');
   manifest.content_scripts[0].js.push('probe.js');
   if (!live) manifest.content_scripts[0].matches.push('http://127.0.0.1/*');
@@ -92,7 +98,9 @@ try {
     noReload: true,
   }, { shouldExitProgram: false });
   const report = await result;
-  if (report.replaced >= minimumReplacements && report.valid) {
+  if (report.replaced >= minimumReplacements && report.valid &&
+      report.extensionStatus?.report.contentScript === 'connected' &&
+      report.extensionStatus.report.content.datesFound >= minimumReplacements) {
     console.log('Firefox content-script smoke test passed.');
   } else {
     console.error(`Firefox date replacement failed: ${JSON.stringify(report)}`);

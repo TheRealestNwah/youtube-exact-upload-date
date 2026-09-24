@@ -1,0 +1,7 @@
+:root { color-scheme: light dark; font: menu; }
+body { width: 360px; margin: 16px; color: CanvasText; background: Canvas; }
+h1 { font-size: 18px; margin: 0 0 12px; }
+p { line-height: 1.4; }
+label { display: block; margin-bottom: 6px; }
+textarea { box-sizing: border-box; width: 100%; resize: vertical; font: 12px monospace; }
+button { margin-top: 10px; padding: 6px 12px; font: inherit; }
