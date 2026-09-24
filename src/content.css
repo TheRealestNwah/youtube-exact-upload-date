@@ -1,0 +1,27 @@
+[data-youtube-exact-upload-date-loading],
+[data-youtube-exact-upload-date] {
+  display: inline-block;
+  min-inline-size: 13ch;
+}
+
+[data-youtube-exact-upload-date-loading] {
+  position: relative;
+  color: transparent !important;
+}
+
+[data-youtube-exact-upload-date-loading]::after {
+  content: "…";
+  position: absolute;
+  inset-inline-start: 0;
+  color: GrayText;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-youtube-exact-upload-date] {
+    animation: youtube-exact-date-reveal 120ms ease-out;
+  }
+  @keyframes youtube-exact-date-reveal {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
+  }
+}

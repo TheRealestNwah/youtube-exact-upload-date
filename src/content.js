@@ -57,10 +57,11 @@
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
+  const loadingStates = new WeakMap();
   const diagnostics = {
     scans: 0, requests: 0, datesFound: 0, redirects: 0,
     httpErrors: 0, missingDates: 0, networkErrors: 0, parseErrors: 0,
-    lastHttpStatus: null, lastError: null, scanErrors: 0,
+    lastHttpStatus: null, lastError: null, scanErrors: 0, sessionCacheHits: 0,
   };
 
   function getDiagnostics(documentRoot = document) {
@@ -248,41 +249,92 @@
       return dateCache.get(videoId);
     }
 
-    const lookup = scheduleRequest(async () => {
-      diagnostics.requests += 1;
-      let parsing = false;
-      try {
-        const url = new URL("/watch", globalThis.location.origin);
-        url.searchParams.set("v", videoId);
-        const response = await globalThis.fetch(url.href, {
-          cache: "force-cache",
-          // YouTube redirects cookie-less watch requests across origins in
-          // Firefox, which makes fetch reject before we can read the date.
-          credentials: "same-origin",
-          referrerPolicy: "no-referrer",
-        });
-        diagnostics.lastHttpStatus = response.status ?? null;
-        if (response.redirected) diagnostics.redirects += 1;
-        if (!response.ok) {
-          diagnostics.httpErrors += 1;
+    const lookup = (async () => {
+      const cached = await sessionCache("get", videoId);
+      const cachedDate = normalizeCalendarDate(cached);
+      if (cachedDate) {
+        diagnostics.sessionCacheHits += 1;
+        return cachedDate;
+      }
+      return scheduleRequest(async () => {
+        diagnostics.requests += 1;
+        let parsing = false;
+        try {
+          const url = new URL("/watch", globalThis.location.origin);
+          url.searchParams.set("v", videoId);
+          const response = await globalThis.fetch(url.href, {
+            cache: "force-cache",
+            // YouTube redirects cookie-less watch requests across origins in
+            // Firefox, which makes fetch reject before we can read the date.
+            credentials: "same-origin",
+            referrerPolicy: "no-referrer",
+          });
+          diagnostics.lastHttpStatus = response.status ?? null;
+          if (response.redirected) diagnostics.redirects += 1;
+          if (!response.ok) {
+            diagnostics.httpErrors += 1;
+            return null;
+          }
+
+          const html = await response.text();
+          parsing = true;
+          const date = extractPublishedDate(html);
+          if (date) {
+            diagnostics.datesFound += 1;
+            void sessionCache("set", videoId, date);
+          } else diagnostics.missingDates += 1;
+          return date;
+        } catch (error) {
+          if (parsing) diagnostics.parseErrors += 1;
+          else diagnostics.networkErrors += 1;
+          diagnostics.lastError = safeErrorName(error);
           return null;
         }
-
-        const html = await response.text();
-        parsing = true;
-        const date = extractPublishedDate(html);
-        if (date) diagnostics.datesFound += 1;
-        else diagnostics.missingDates += 1;
-        return date;
-      } catch (error) {
-        if (parsing) diagnostics.parseErrors += 1;
-        else diagnostics.networkErrors += 1;
-        diagnostics.lastError = safeErrorName(error);
-        return null;
-      }
-    });
+      });
+    })();
 
     return rememberDate(videoId, lookup);
+  }
+
+  async function sessionCache(operation, videoId, date) {
+    const api = globalThis.browser;
+    if (!api?.runtime?.sendMessage || api.extension?.inIncognitoContext) return null;
+    let timer;
+    try {
+      // An unavailable background script must not hold up normal lookups.
+      return await Promise.race([
+        api.runtime.sendMessage({ type: `youtube-exact-upload-date:cache-${operation}`, videoId, date }),
+        new Promise(resolve => { timer = globalThis.setTimeout(() => resolve(null), 150); }),
+      ]);
+    } catch { return null; }
+    finally { globalThis.clearTimeout(timer); }
+  }
+
+  function beginLoading(element, videoId) {
+    const previous = loadingStates.get(element);
+    if (previous) finishLoading(element, previous);
+    const state = { videoId, busy: element.getAttribute("aria-busy") };
+    loadingStates.set(element, state);
+    element.dataset.youtubeExactUploadDatePending = videoId;
+    element.dataset.youtubeExactUploadDateLoading = videoId;
+    element.setAttribute("aria-busy", "true");
+    state.timer = globalThis.setTimeout(() => revealOriginal(element, state), 1800);
+    return state;
+  }
+
+  function revealOriginal(element, state) {
+    if (loadingStates.get(element) !== state) return;
+    delete element.dataset.youtubeExactUploadDateLoading;
+    if (state.busy === null) element.removeAttribute("aria-busy");
+    else element.setAttribute("aria-busy", state.busy);
+  }
+
+  function finishLoading(element, state) {
+    if (loadingStates.get(element) !== state) return;
+    globalThis.clearTimeout(state.timer);
+    revealOriginal(element, state);
+    delete element.dataset.youtubeExactUploadDatePending;
+    loadingStates.delete(element);
   }
 
   function setExactDate(element, date, videoId) {
@@ -350,10 +402,11 @@
       return;
     }
 
-    element.dataset.youtubeExactUploadDatePending = videoId;
+    const state = beginLoading(element, videoId);
     getExactDateForVideo(videoId).then((date) => {
+      if (loadingStates.get(element) !== state) return;
+      finishLoading(element, state);
       if (!date || !element.isConnected) {
-        delete element.dataset.youtubeExactUploadDatePending;
         return;
       }
 
@@ -406,7 +459,7 @@
     scanTimer = globalThis.setTimeout(() => {
       scanTimer = null;
       scanSafely();
-    }, 100);
+    }, 16);
   }
 
   function start() {
@@ -424,7 +477,7 @@
     scanSafely();
 
     const observer = new MutationObserver(scheduleScan);
-    observer.observe(document.documentElement, {
+    observer.observe(document, {
       childList: true,
       subtree: true,
     });
