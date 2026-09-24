@@ -15,5 +15,5 @@ test("limits explicit host access to the content script's YouTube site", () => {
 });
 
 test("does not request unrelated extension permissions", () => {
-  assert.equal(manifest.permissions, undefined);
+  assert.deepEqual(manifest.permissions, ["storage"]);
 });

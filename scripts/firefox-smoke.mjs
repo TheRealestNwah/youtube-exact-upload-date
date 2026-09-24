@@ -11,6 +11,7 @@ const directory = await mkdtemp(path.join(tmpdir(), 'youtube-date-smoke-'));
 const live = process.argv.includes('--live');
 const minimumReplacements = live ? 3 : 2;
 let finish;
+let coldReport;
 const result = new Promise(resolve => { finish = resolve; });
 const server = createServer(async (request, response) => {
   if (request.method === 'POST') {
@@ -18,7 +19,10 @@ const server = createServer(async (request, response) => {
     for await (const chunk of request) body += chunk;
     const report = JSON.parse(body);
     console.log(JSON.stringify(report));
-    if ((report.replaced >= minimumReplacements && report.rounds >= 3 && report.valid) || report.final) finish(report);
+    if (report.replaced >= minimumReplacements && report.rounds >= 3 && report.valid) {
+      if (live || report.warm) finish(report);
+      else coldReport = report;
+    } else if (report.final) finish(report);
     response.end('ok');
     return;
   }
@@ -29,6 +33,7 @@ const server = createServer(async (request, response) => {
       response.end('The watch-page fixture requires its same-site session cookie.');
       return;
     }
+    await new Promise(resolve => setTimeout(resolve, 300));
     response.end('<meta itemprop="uploadDate" content="2026-09-22T10:00:00Z">');
   } else {
     response.setHeader('Set-Cookie', 'date-smoke=1; SameSite=Lax; Path=/');
@@ -46,15 +51,26 @@ let runner;
 let timeout;
 try {
   await mkdir(path.join(directory, 'src'));
-  for (const file of ['status.html', 'status.css', 'status.js']) {
+  for (const file of ['status.html', 'status.css', 'status.js', 'content.css']) {
     await copyFile(path.join(root, 'src', file), path.join(directory, 'src', file));
   }
   let source = await readFile(path.join(root, 'src/content.js'), 'utf8');
   // Local fixture only: allow the production startup hostname guard to run.
   if (!live) source = source.replaceAll('youtube\\.com$', '127\\.0\\.0\\.1$|youtube\\.com$');
   await writeFile(path.join(directory, 'src/content.js'), source);
+  let cacheSource = await readFile(path.join(root, 'src/cache.js'), 'utf8');
+  // Fixture-only origin; the packaged background accepts only YouTube.
+  if (!live) cacheSource = cacheSource.replace('https://www.youtube.com/', endpoint + '/');
+  await writeFile(path.join(directory, 'src/cache.js'), cacheSource);
   await writeFile(path.join(directory, 'probe.js'), String.raw`
     let rounds = 0;
+    let sawLoading = false;
+    const loadingObserver = new MutationObserver(() => {
+      const pending = document.querySelector('[data-youtube-exact-upload-date-loading]');
+      if (pending && getComputedStyle(pending).color === 'rgba(0, 0, 0, 0)' &&
+          getComputedStyle(pending, '::after').content === '"…"') sawLoading = true;
+    });
+    loadingObserver.observe(document, { childList: true, subtree: true, attributes: true });
     const timer = setInterval(() => {
       const changed = [...document.querySelectorAll('[data-youtube-exact-upload-date]')];
       const local = location.hostname === '127.0.0.1';
@@ -65,6 +81,8 @@ try {
       const report = {
         replaced: changed.length,
         privateWindow: browser.extension.inIncognitoContext,
+        warm: location.search.includes('smokeWarm=1'),
+        sawLoading,
         valid,
         pending: document.querySelectorAll('[data-youtube-exact-upload-date-pending]').length,
         rounds: ++rounds,
@@ -75,16 +93,21 @@ try {
     }, 2000);
   `);
   await writeFile(path.join(directory, 'background.js'), `
-    browser.runtime.onMessage.addListener(async (report) => {
+    browser.runtime.onMessage.addListener((report, sender) => {
       if (report.type) return;
+      return (async () => {
       // Exercise the same permissions/query/message path as the real popup.
       report.extensionStatus = await readStatus(browser);
-      return fetch('${endpoint}/report', { method: 'POST', body: JSON.stringify(report) }).then(() => {});
+      await fetch('${endpoint}/report', { method: 'POST', body: JSON.stringify(report) });
+      if (!${live} && !report.warm && report.rounds === 3 && report.replaced >= 2) {
+        await browser.tabs.update(sender.tab.id, { url: '${endpoint}/?smokeWarm=1' });
+      }
+      })();
     });
   `);
   const manifest = JSON.parse(await readFile(path.join(root, 'manifest.json'), 'utf8'));
   delete manifest.icons;
-  manifest.background = { scripts: ['src/status.js', 'background.js'] };
+  manifest.background.scripts.push('src/status.js', 'background.js');
   manifest.host_permissions.push('http://127.0.0.1/*');
   manifest.content_scripts[0].js.push('probe.js');
   if (!live) manifest.content_scripts[0].matches.push('http://127.0.0.1/*');
@@ -100,7 +123,9 @@ try {
   const report = await result;
   if (report.replaced >= minimumReplacements && report.valid &&
       report.extensionStatus?.report.contentScript === 'connected' &&
-      report.extensionStatus.report.content.datesFound >= minimumReplacements) {
+      (live ? report.extensionStatus.report.content.datesFound >= minimumReplacements :
+        coldReport?.sawLoading && report.extensionStatus.report.content.sessionCacheHits === 2 &&
+        report.extensionStatus.report.content.requests === 0)) {
     console.log('Firefox content-script smoke test passed.');
   } else {
     console.error(`Firefox date replacement failed: ${JSON.stringify(report)}`);

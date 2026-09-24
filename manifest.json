@@ -1,7 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Exact Upload Date for YouTube",
-  "version": "1.0.2",
+  "version": "1.0.3",
+  "permissions": ["storage"],
+  "background": { "scripts": ["src/cache.js"] },
   "action": {
     "default_title": "YouTube upload date status",
     "default_popup": "src/status.html"
@@ -37,7 +39,8 @@
       "js": [
         "src/content.js"
       ],
-      "run_at": "document_idle"
+      "css": ["src/content.css"],
+      "run_at": "document_start"
     }
   ]
 }
