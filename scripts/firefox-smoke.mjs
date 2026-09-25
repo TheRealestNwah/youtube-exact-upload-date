@@ -65,6 +65,7 @@ try {
   await writeFile(path.join(directory, 'probe.js'), String.raw`
     let rounds = 0;
     let sawLoading = false;
+    const seenVideoIds = new Set();
     const loadingObserver = new MutationObserver(() => {
       const pending = document.querySelector('[data-youtube-exact-upload-date-loading]');
       if (pending && getComputedStyle(pending).color === 'rgba(0, 0, 0, 0)' &&
@@ -73,13 +74,14 @@ try {
     loadingObserver.observe(document, { childList: true, subtree: true, attributes: true });
     const timer = setInterval(() => {
       const changed = [...document.querySelectorAll('[data-youtube-exact-upload-date]')];
+      for (const element of changed) seenVideoIds.add(element.dataset.youtubeExactUploadDate);
       const local = location.hostname === '127.0.0.1';
       const valid = changed.every(element => local
         ? element.textContent === 'Sept. 22 2026'
         : /^[A-Z][a-z]+\.? \d{1,2} \d{4}$/.test(element.textContent))
         && (!local || document.querySelector('#views').textContent === '123 views');
       const report = {
-        replaced: changed.length,
+        replaced: ${live} ? seenVideoIds.size : changed.length,
         privateWindow: browser.extension.inIncognitoContext,
         warm: location.search.includes('smokeWarm=1'),
         sawLoading,
@@ -89,6 +91,7 @@ try {
         final: rounds >= 15
       };
       browser.runtime.sendMessage(report);
+      if (${live}) window.scrollBy(0, Math.max(300, window.innerHeight * 0.7));
       if (report.final) clearInterval(timer);
     }, 2000);
   `);
