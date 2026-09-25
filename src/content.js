@@ -140,7 +140,10 @@
 
   function rerenderDates() {
     for (const element of document.querySelectorAll("[data-youtube-exact-upload-calendar-date]")) {
-      setExactDate(element, element.dataset.youtubeExactUploadCalendarDate,
+      setExactDate(element, {
+        date: element.dataset.youtubeExactUploadCalendarDate,
+        kind: element.dataset.youtubeExactUploadDateKind,
+      },
         element.dataset.youtubeExactUploadDate);
     }
   }
@@ -197,58 +200,54 @@
       : null;
   }
 
-  function extractPublishedDate(html) {
+  function normalizeDateMetadata(value) {
+    const date = normalizeCalendarDate(typeof value === "string" ? value : value?.date);
+    if (!date) return null;
+    const kind = ["published", "upload"].includes(value?.kind) ? value.kind : "date";
+    return { date, kind };
+  }
+
+  function extractDateMetadata(html) {
     if (typeof html !== "string" || html.length === 0) {
       return null;
     }
 
-    // This tag is normally in the first few KB of a watch response. A small
-    // text search avoids constructing a full DOM for every uncached video.
-    const firstTag = html.match(
-      /<meta\b[^>]*\bitemprop\s*=\s*(["'])(?:uploadDate|datePublished)\1[^>]*>/i,
-    )?.[0];
-    const firstDate = normalizeCalendarDate(
-      firstTag?.match(/\bcontent\s*=\s*(["'])([^"']+)\1/i)?.[2],
-    );
-    if (firstDate) return firstDate;
-
-    const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
-    for (const tag of metaTags) {
-      if (!/itemprop=["'](?:uploadDate|datePublished)["']/i.test(tag)) {
-        continue;
-      }
-
-      const content = tag.match(/content=["']([^"']+)["']/i)?.[1];
-      const normalized = normalizeCalendarDate(content);
-      if (normalized) {
-        return normalized;
+    // Search markup as text first to avoid parsing a full watch page.
+    const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
+    for (const [field, kind] of [["datePublished", "published"], ["uploadDate", "upload"]]) {
+      for (const tag of tags) {
+        if (!new RegExp(`\\bitemprop\\s*=\\s*["']${field}["']`, "i").test(tag)) continue;
+        const date = normalizeCalendarDate(tag.match(/\bcontent\s*=\s*(["'])([^"']+)\1/i)?.[2]);
+        if (date) return { date, kind };
       }
     }
-
-    const jsonDate = html.match(
-      /["'](?:uploadDate|publishDate)["']\s*:\s*["'](\d{4}-\d{2}-\d{2})/i,
-    )?.[1];
-    const serializedDate = normalizeCalendarDate(jsonDate);
-    if (serializedDate) return serializedDate;
+    for (const [field, kind] of [["publishDate", "published"], ["uploadDate", "upload"]]) {
+      const date = normalizeCalendarDate(html.match(
+        new RegExp(`["']${field}["']\\s*:\\s*["'](\\d{4}-\\d{2}-\\d{2})`, "i"),
+      )?.[1]);
+      if (date) return { date, kind };
+    }
 
     // Handle unusual but valid markup without slowing down normal responses.
     if (typeof DOMParser !== "undefined") {
       const parsed = new DOMParser().parseFromString(html, "text/html");
-      const content = parsed.querySelector(
-        'meta[itemprop="uploadDate"], meta[itemprop="datePublished"]',
-      )?.getAttribute("content");
-      return normalizeCalendarDate(content);
+      return readDocumentDateMetadata(parsed);
     }
     return null;
   }
 
-  function readDocumentPublishedDate(documentRoot) {
-    const content = documentRoot
-      .querySelector(
-        'meta[itemprop="uploadDate"], meta[itemprop="datePublished"]',
-      )
-      ?.getAttribute("content");
-    return normalizeCalendarDate(content);
+  function extractPublishedDate(html) {
+    return extractDateMetadata(html)?.date ?? null;
+  }
+
+  function readDocumentDateMetadata(documentRoot) {
+    for (const [field, kind] of [["datePublished", "published"], ["uploadDate", "upload"]]) {
+      for (const tag of documentRoot.querySelectorAll(`meta[itemprop="${field}"]`)) {
+        const date = normalizeCalendarDate(tag.getAttribute("content"));
+        if (date) return { date, kind };
+      }
+    }
+    return null;
   }
 
   function scheduleRequest(task) {
@@ -292,10 +291,10 @@
 
     const lookup = (async () => {
       const cached = await sessionCache("get", videoId);
-      const cachedDate = normalizeCalendarDate(cached);
-      if (cachedDate) {
+      const cachedMetadata = normalizeDateMetadata(cached);
+      if (cachedMetadata) {
         diagnostics.sessionCacheHits += 1;
-        return cachedDate;
+        return cachedMetadata;
       }
       return scheduleRequest(async () => {
         diagnostics.requests += 1;
@@ -319,12 +318,12 @@
 
           const html = await response.text();
           parsing = true;
-          const date = extractPublishedDate(html);
-          if (date) {
+          const metadata = extractDateMetadata(html);
+          if (metadata) {
             diagnostics.datesFound += 1;
-            void sessionCache("set", videoId, date);
+            void sessionCache("set", videoId, metadata);
           } else diagnostics.missingDates += 1;
-          return date;
+          return metadata;
         } catch (error) {
           if (parsing) diagnostics.parseErrors += 1;
           else diagnostics.networkErrors += 1;
@@ -334,10 +333,10 @@
       });
     })();
 
-    return rememberDate(videoId, lookup.then(date => {
-      if (date) failedLookups.delete(videoId);
+    return rememberDate(videoId, lookup.then(metadata => {
+      if (metadata) failedLookups.delete(videoId);
       else failedLookups.add(videoId);
-      return date;
+      return metadata;
     }));
   }
 
@@ -349,14 +348,14 @@
     return { retried };
   }
 
-  async function sessionCache(operation, videoId, date) {
+  async function sessionCache(operation, videoId, metadata) {
     const api = globalThis.browser;
     if (!api?.runtime?.sendMessage || api.extension?.inIncognitoContext) return null;
     let timer;
     try {
       // An unavailable background script must not hold up normal lookups.
       return await Promise.race([
-        api.runtime.sendMessage({ type: `youtube-exact-upload-date:cache-${operation}`, videoId, date }),
+        api.runtime.sendMessage({ type: `youtube-exact-upload-date:cache-${operation}`, videoId, metadata }),
         new Promise(resolve => { timer = globalThis.setTimeout(() => resolve(null), 150); }),
       ]);
     } catch { return null; }
@@ -390,8 +389,9 @@
     loadingStates.delete(element);
   }
 
-  function setExactDate(element, date, videoId) {
-    const formatted = formatExactDate(date);
+  function setExactDate(element, metadata, videoId) {
+    const normalized = normalizeDateMetadata(metadata);
+    const formatted = formatExactDate(normalized?.date);
     if (!formatted || !element.isConnected) {
       return false;
     }
@@ -404,11 +404,14 @@
     const relative = element.dataset.youtubeExactUploadRelativeTime;
     element.textContent = displayMode === "both" && relative
       ? `${formatted} · ${relative}` : formatted;
-    const accessible = `Uploaded ${formatted}${displayMode === "both" && relative ? `; ${relative}` : ""}`;
+    const label = normalized.kind === "published" ? "Published" :
+      normalized.kind === "upload" ? "Uploaded" : "Dated";
+    const accessible = `${label} ${formatted}${displayMode === "both" && relative ? `; ${relative}` : ""}`;
     element.setAttribute("aria-label", accessible);
     element.setAttribute("title", accessible);
     element.dataset.youtubeExactUploadDate = videoId;
-    element.dataset.youtubeExactUploadCalendarDate = date;
+    element.dataset.youtubeExactUploadCalendarDate = normalized.date;
+    element.dataset.youtubeExactUploadDateKind = normalized.kind;
     delete element.dataset.youtubeExactUploadDatePending;
     return true;
   }
@@ -479,24 +482,24 @@
     if (deferredElements.delete(element)) visibilityObserver?.unobserve(element);
 
     const state = beginLoading(element, videoId);
-    getExactDateForVideo(videoId).then((date) => {
+    getExactDateForVideo(videoId).then((metadata) => {
       if (loadingStates.get(element) !== state) return;
       finishLoading(element, state);
-      if (!date || !element.isConnected) {
+      if (!metadata || !element.isConnected) {
         return;
       }
 
       const currentVideoId = findVideoIdForMetadata(element);
       if (currentVideoId === videoId) {
-        setExactDate(element, date, videoId);
+        setExactDate(element, metadata, videoId);
       }
     });
   }
 
   function updateWatchPage(documentRoot) {
     const videoId = extractVideoId(globalThis.location.href);
-    const date = readDocumentPublishedDate(documentRoot);
-    if (!videoId || !date) {
+    const metadata = readDocumentDateMetadata(documentRoot);
+    if (!videoId || !metadata) {
       return;
     }
 
@@ -505,7 +508,7 @@
     );
     for (const target of targets) {
       if (target.dataset.youtubeExactUploadDate !== videoId) {
-        setExactDate(target, date, videoId);
+        setExactDate(target, metadata, videoId);
       }
     }
   }
@@ -600,6 +603,7 @@
 
   const publicApi = {
     extractPublishedDate,
+    extractDateMetadata,
     extractVideoId,
     formatExactDate,
     getDiagnostics,

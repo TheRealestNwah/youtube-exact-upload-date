@@ -16,8 +16,9 @@ test("session cache survives background recreation and expires dates", async () 
   let time = 1000;
   const cache = createSessionDateCache(store, () => time);
   assert.equal(await cache.get("CacheVideo1"), null);
-  await cache.set("CacheVideo1", "2026-09-23");
-  assert.equal(await createSessionDateCache(store, () => time).get("CacheVideo1"), "2026-09-23");
+  await cache.set("CacheVideo1", { date: "2026-09-23", kind: "published" });
+  assert.deepEqual(await createSessionDateCache(store, () => time).get("CacheVideo1"),
+    { date: "2026-09-23", kind: "published" });
   time += 6 * 60 * 60 * 1000;
   assert.equal(await cache.get("CacheVideo1"), null);
 });
@@ -25,17 +26,19 @@ test("session cache survives background recreation and expires dates", async () 
 test("cache bounds entries and serializes concurrent writes", async () => {
   const store = storage();
   const cache = createSessionDateCache(store, () => 1000, 2);
-  await Promise.all(["CacheVideo1", "CacheVideo2", "CacheVideo3"].map(id => cache.set(id, "2026-09-23")));
+  await Promise.all(["CacheVideo1", "CacheVideo2", "CacheVideo3"].map(id =>
+    cache.set(id, { date: "2026-09-23", kind: "upload" })));
   const restarted = createSessionDateCache(store, () => 1000, 2);
   assert.equal(await restarted.get("CacheVideo1"), null);
-  assert.equal(await restarted.get("CacheVideo2"), "2026-09-23");
-  assert.equal(await restarted.get("CacheVideo3"), "2026-09-23");
+  assert.deepEqual(await restarted.get("CacheVideo2"), { date: "2026-09-23", kind: "upload" });
+  assert.deepEqual(await restarted.get("CacheVideo3"), { date: "2026-09-23", kind: "upload" });
 });
 
 test("invalid dates and video IDs never enter the cache", async () => {
   const cache = createSessionDateCache(storage());
-  assert.equal(await cache.set("CacheVideo1", "2026-02-30"), false);
-  assert.equal(await cache.set("https://youtube.com", "2026-09-23"), false);
+  assert.equal(await cache.set("CacheVideo1", { date: "2026-02-30", kind: "upload" }), false);
+  assert.equal(await cache.set("https://youtube.com", { date: "2026-09-23", kind: "upload" }), false);
+  assert.equal(await cache.set("CacheVideo1", { date: "2026-09-23", kind: "unknown" }), false);
   assert.equal(await cache.get("CacheVideo1"), null);
 });
 
@@ -54,4 +57,11 @@ test("cache storage failure degrades to a miss", async () => {
   assert.equal(await listener({ type: "youtube-exact-upload-date:cache-get", videoId: "CacheVideo1" }, {
     tab: { incognito: false }, url: "https://www.youtube.com/",
   }), null);
+});
+
+test("older cached dates use a neutral label when their source is unknown", async () => {
+  const store = storage();
+  await store.set({ exactUploadDates: [["CacheVideo1", { date: "2026-09-23", savedAt: 1000 }]] });
+  const cache = createSessionDateCache(store, () => 1000);
+  assert.deepEqual(await cache.get("CacheVideo1"), { date: "2026-09-23", kind: "date" });
 });

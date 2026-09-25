@@ -64,11 +64,11 @@ test("a startup scan error remains observable through the status listener", asyn
     getManifest: () => ({ version: "1.0.2" }),
     onMessage: { addListener: callback => { listener = callback; } },
   } };
-  const originalQuery = dom.window.document.querySelector;
-  dom.window.document.querySelector = () => { throw new TypeError("private details"); };
+  const originalQuery = dom.window.document.querySelectorAll;
+  dom.window.document.querySelectorAll = () => { throw new TypeError("private details"); };
   try {
     dom.window.eval(source);
-    dom.window.document.querySelector = originalQuery;
+    dom.window.document.querySelectorAll = originalQuery;
     const report = await listener({ type: "youtube-exact-upload-date:status" });
     assert.equal(report.scanErrors, 1);
     assert.equal(report.lastError, "TypeError");

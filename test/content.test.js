@@ -6,6 +6,7 @@ const { JSDOM } = require("jsdom");
 
 const {
   extractPublishedDate,
+  extractDateMetadata,
   extractVideoId,
   formatExactDate,
   isRelativeTime,
@@ -96,6 +97,24 @@ test("extracts datePublished metadata regardless of attribute order", () => {
   const html =
     "<meta content='2009-10-24T23:57:33-07:00' itemprop='datePublished'>";
   assert.equal(extractPublishedDate(html), "2009-10-24");
+  assert.deepEqual(extractDateMetadata(html), { date: "2009-10-24", kind: "published" });
+});
+
+test("prefers publication metadata when upload and public dates differ", () => {
+  const html = '<meta itemprop="uploadDate" content="2026-09-20"><meta itemprop="datePublished" content="2026-09-23">';
+  assert.deepEqual(extractDateMetadata(html), { date: "2026-09-23", kind: "published" });
+});
+
+test("labels a watch page with publication metadata as published", () => {
+  const dom = new JSDOM('<meta itemprop="datePublished" content="2026-09-23"><ytd-watch-info-text><div id="date-text">1 day ago</div></ytd-watch-info-text>', {
+    url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  });
+  const originalLocation = globalThis.location;
+  globalThis.location = dom.window.location;
+  try {
+    scanPage(dom.window.document);
+    assert.equal(dom.window.document.querySelector("#date-text").getAttribute("aria-label"), "Published Sept. 23 2026");
+  } finally { globalThis.location = originalLocation; }
 });
 
 test("finds the first valid upload date when an earlier meta tag is invalid", () => {

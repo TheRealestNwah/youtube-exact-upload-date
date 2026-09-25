@@ -17,7 +17,8 @@ function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "cl
     runtime: {
       getManifest: () => ({ version: "1.0.3" }),
       onMessage: { addListener: fn => { listener = fn; } },
-      sendMessage: async message => { messages.push(message); return message.type.endsWith("cache-get") ? cached : true; },
+      sendMessage: async message => { messages.push(message); return message.type.endsWith("cache-get")
+        ? (typeof cached === "string" ? { date: cached, kind: "upload" } : cached) : true; },
     },
     storage: {
       local: { get: async () => ({ dateFormat, displayMode }) },
@@ -43,6 +44,15 @@ test("warm session cache replaces dates without a watch request", async () => {
     assert.equal(report.requests, 0);
     assert.equal(report.sessionCacheHits, 1);
     assert.equal(f.span.hasAttribute("data-youtube-exact-upload-date-loading"), false);
+  } finally { f.dom.window.close(); }
+});
+
+test("cached publication metadata keeps its Published label", async () => {
+  const f = fixture({ cached: { date: "2026-09-23", kind: "published" } });
+  try {
+    f.start();
+    await tick();
+    assert.equal(f.span.getAttribute("aria-label"), "Published Sept. 23 2026");
   } finally { f.dom.window.close(); }
 });
 
