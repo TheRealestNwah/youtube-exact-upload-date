@@ -5,7 +5,7 @@ const { readFileSync } = require("node:fs");
 const { JSDOM } = require("jsdom");
 const source = readFileSync(require.resolve("../src/content.js"), "utf8");
 
-function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "classic" } = {}) {
+function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "classic", displayMode = "exact" } = {}) {
   const dom = new JSDOM('<yt-lockup-view-model><a href="/watch?v=LoadingVid1">Video</a><yt-content-metadata-view-model><span aria-label="3 hours ago">3h ago</span></yt-content-metadata-view-model></yt-lockup-view-model>', {
     url: "https://www.youtube.com/", runScripts: "outside-only",
   });
@@ -20,13 +20,14 @@ function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "cl
       sendMessage: async message => { messages.push(message); return message.type.endsWith("cache-get") ? cached : true; },
     },
     storage: {
-      local: { get: async () => ({ dateFormat }) },
+      local: { get: async () => ({ dateFormat, displayMode }) },
       onChanged: { addListener: fn => { storageListener = fn; } },
     },
   };
   dom.window.fetch = fetch ?? (() => assert.fail("cached date must not fetch"));
   return { dom, messages, start: () => dom.window.eval(source),
     changeFormat: value => storageListener({ dateFormat: { newValue: value } }, "local"),
+    changeDisplay: value => storageListener({ displayMode: { newValue: value } }, "local"),
     report: () => listener({ type: "youtube-exact-upload-date:status" }),
     span: dom.window.document.querySelector("span") };
 }
@@ -55,6 +56,20 @@ test("changing date format updates dates already shown on a card", async () => {
     assert.equal(f.span.getAttribute("aria-label"), "Uploaded 2026-09-23");
     const report = await f.report();
     assert.equal(report.requests, 0);
+  } finally { f.dom.window.close(); }
+});
+
+test("combined display preserves the original relative time and updates accessibility", async () => {
+  const f = fixture({ cached: "2026-09-23", displayMode: "both" });
+  try {
+    f.start();
+    await tick();
+    assert.equal(f.span.textContent, "Sept. 23 2026 · 3h ago");
+    assert.equal(f.span.getAttribute("aria-label"), "Uploaded Sept. 23 2026; 3h ago");
+    f.changeDisplay("exact");
+    assert.equal(f.span.textContent, "Sept. 23 2026");
+    f.changeDisplay("both");
+    assert.equal(f.span.textContent, "Sept. 23 2026 · 3h ago");
   } finally { f.dom.window.close(); }
 });
 
