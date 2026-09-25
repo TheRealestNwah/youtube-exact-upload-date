@@ -17,7 +17,7 @@ The extension uses YouTube's `datePublished` metadata when available and labels 
 
 The extension reads the exact date already embedded in watch pages. For listing cards, where YouTube provides only relative text, it fetches the corresponding public watch page from YouTube with at most eight requests running at once. Cards in or near the viewport are looked up first; offscreen cards wait until they scroll into view. Up to 500 successful video IDs, dates, and date types are cached in browser-session memory for six hours, shared across normal tabs and reloads. They are not written to disk or synced, and disappear when the browser session ends. Private windows use only their existing per-tab memory cache, never the shared cache.
 
-New lookups briefly display an ellipsis in a reserved date-width space, then reveal the exact date. The original relative text returns on failure or after 1.8 seconds if the lookup is still pending. The short reveal animation respects reduced-motion preferences. New videos still require a network request; repeat visits can avoid it. The script starts at document start to reduce the initial flash of relative text, though YouTube's own rendering can still cause a brief flash. Version 1.0.4 allows up to eight concurrent lookups so a wide Home row can update in one wave, and searches watch-page markup for the date before parsing the whole HTML document.
+New lookups briefly display an ellipsis in a reserved date-width space, then reveal the exact date. The original relative text returns on failure or after 1.8 seconds if the lookup is still pending. The short reveal animation respects reduced-motion preferences. New videos still require a network request; repeat visits can avoid it. The script starts at document start to reduce the initial flash of relative text, though YouTube's own rendering can still cause a brief flash. Up to eight lookups run at once so a wide Home row can update in one wave, and watch-page markup is searched for the date before parsing the whole HTML document.
 
 ## Install for development
 
@@ -36,7 +36,7 @@ After updating a temporary add-on, reload it in `about:debugging` and refresh th
 
 While the affected YouTube tab is active, open **Exact Upload Date for YouTube** from the browser's extensions button. The local status panel distinguishes missing site access, a content script that did not respond, unmatched timestamps, failed requests, and responses without a parseable exact date. **Refresh status** only reads the counters. **Retry failed dates** starts another lookup for failed videos on the active tab without reloading successful dates.
 
-The report contains aggregate counters, HTTP status codes, and allowlisted error names only. It includes no URLs, video IDs, titles, cookies, or raw error messages; it is not stored or transmitted. Counters reset with the page. A connected script is not proof that replacement succeeded: check `replaced`, `datesFound`, and `sessionCacheHits`. Home, Subscriptions, and Watch Later were user-verified with 1.0.2. Version 1.0.3 adds session caching and smoother loading.
+The report contains aggregate counters, HTTP status codes, and allowlisted error names only. It includes no URLs, video IDs, titles, cookies, or raw error messages; it is not stored or transmitted. Counters reset with the page. A connected script is not proof that replacement succeeded: check `replaced`, `datesFound`, and `sessionCacheHits`.
 
 ### Commands
 
