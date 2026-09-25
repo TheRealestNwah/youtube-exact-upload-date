@@ -63,6 +63,8 @@
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
+  let visibilityObserver = null;
+  const deferredElements = new Set();
   const loadingStates = new WeakMap();
   const diagnostics = {
     scans: 0, requests: 0, datesFound: 0, redirects: 0,
@@ -431,7 +433,14 @@
     return candidates;
   }
 
-  function updateListingItem(element) {
+  function isNearViewport(element) {
+    const rect = element.getBoundingClientRect();
+    const margin = 300;
+    return rect.top <= globalThis.innerHeight + margin && rect.bottom >= -margin &&
+      rect.left <= globalThis.innerWidth + margin && rect.right >= -margin;
+  }
+
+  function updateListingItem(element, fromObserver = false) {
     if (
       !isRelativeTime(element.textContent) &&
       !isRelativeTime(element.getAttribute("aria-label"))
@@ -447,6 +456,13 @@
     if (element.dataset.youtubeExactUploadDatePending === videoId) {
       return;
     }
+
+    if (visibilityObserver && !fromObserver && !isNearViewport(element)) {
+      visibilityObserver.observe(element);
+      deferredElements.add(element);
+      return;
+    }
+    if (deferredElements.delete(element)) visibilityObserver?.unobserve(element);
 
     const state = beginLoading(element, videoId);
     getExactDateForVideo(videoId).then((date) => {
@@ -483,6 +499,12 @@
   function scanPage(documentRoot = document) {
     diagnostics.scans += 1;
     updateWatchPage(documentRoot);
+    for (const element of deferredElements) {
+      if (!element.isConnected || !isRelativeTime(element.textContent)) {
+        visibilityObserver?.unobserve(element);
+        deferredElements.delete(element);
+      }
+    }
     for (const element of findListingTimestampCandidates(documentRoot)) {
       updateListingItem(element);
     }
@@ -509,6 +531,16 @@
   }
 
   function start() {
+    if (typeof IntersectionObserver !== "undefined") {
+      visibilityObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          visibilityObserver.unobserve(entry.target);
+          deferredElements.delete(entry.target);
+          updateListingItem(entry.target, true);
+        }
+      }, { rootMargin: "300px" });
+    }
     const storage = globalThis.browser?.storage;
     if (storage?.local) {
       storage.local.get([DATE_FORMAT_KEY, DISPLAY_MODE_KEY]).then(
