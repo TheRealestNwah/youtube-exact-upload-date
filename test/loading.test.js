@@ -73,6 +73,33 @@ test("combined display preserves the original relative time and updates accessib
   } finally { f.dom.window.close(); }
 });
 
+test("offscreen cards wait until visible and use their current video link", async () => {
+  let observer;
+  const fetched = [];
+  const f = fixture({ fetch: async url => {
+    fetched.push(new URL(url).searchParams.get("v"));
+    return { ok: true, text: async () => '<meta itemprop="uploadDate" content="2026-09-23">' };
+  } });
+  f.dom.window.IntersectionObserver = class {
+    constructor(callback) { this.callback = callback; observer = this; }
+    observe(target) { this.target = target; }
+    unobserve() {}
+    show() { this.callback([{ target: this.target, isIntersecting: true }]); }
+  };
+  f.span.getBoundingClientRect = () => ({ top: 2000, bottom: 2020, left: 0, right: 100 });
+  try {
+    f.start();
+    await tick();
+    assert.deepEqual(fetched, []);
+    assert.equal(f.span.textContent, "3h ago");
+    f.dom.window.document.querySelector("a").setAttribute("href", "/watch?v=AnotherVid2");
+    observer.show();
+    await tick();
+    assert.deepEqual(fetched, ["AnotherVid2"]);
+    assert.equal(f.span.textContent, "Sept. 23 2026");
+  } finally { f.dom.window.close(); }
+});
+
 test("failed fetch restores the untouched relative text and accessibility state", async () => {
   let finish;
   const f = fixture({ fetch: () => new Promise(resolve => { finish = resolve; }) });
