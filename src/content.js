@@ -55,6 +55,7 @@
   const MAX_CACHE_ENTRIES = 500;
 
   const dateCache = new Map();
+  const failedLookups = new Set();
   const DATE_FORMAT_KEY = "dateFormat";
   const DISPLAY_MODE_KEY = "displayMode";
   const DATE_FORMATS = new Set(["classic", "iso", "locale"]);
@@ -85,6 +86,7 @@
       replaced: documentRoot.querySelectorAll("[data-youtube-exact-upload-date]").length,
       activeRequests,
       queuedRequests: requestQueue.length,
+      failedLookups: failedLookups.size,
     };
   }
 
@@ -332,7 +334,19 @@
       });
     })();
 
-    return rememberDate(videoId, lookup);
+    return rememberDate(videoId, lookup.then(date => {
+      if (date) failedLookups.delete(videoId);
+      else failedLookups.add(videoId);
+      return date;
+    }));
+  }
+
+  function retryFailedLookups() {
+    const retried = failedLookups.size;
+    for (const videoId of failedLookups) dateCache.delete(videoId);
+    failedLookups.clear();
+    if (retried) scanSafely();
+    return { retried };
   }
 
   async function sessionCache(operation, videoId, date) {
@@ -566,6 +580,9 @@
         } catch (error) {
           return Promise.resolve({ ...diagnostics, statusError: safeErrorName(error) });
         }
+      }
+      if (message?.type === "youtube-exact-upload-date:retry") {
+        return Promise.resolve(retryFailedLookups());
       }
       return undefined;
     });

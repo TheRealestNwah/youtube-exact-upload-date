@@ -32,7 +32,7 @@ After updating a temporary add-on, reload it in `about:debugging` and refresh th
 
 ### Troubleshooting a page that still shows relative dates
 
-While the affected YouTube tab is active, open **Exact Upload Date for YouTube** from the browser's extensions button. Version 1.0.2 adds a local status panel. Copy its report to distinguish missing site access, a content script that did not respond, unmatched timestamps, failed requests, and responses without a parseable exact date. **Refresh status** only reads the counters; it does not reload the page or retry failed requests.
+While the affected YouTube tab is active, open **Exact Upload Date for YouTube** from the browser's extensions button. The local status panel distinguishes missing site access, a content script that did not respond, unmatched timestamps, failed requests, and responses without a parseable exact date. **Refresh status** only reads the counters. **Retry failed dates** starts another lookup for failed videos on the active tab without reloading successful dates.
 
 The report contains aggregate counters, HTTP status codes, and allowlisted error names only. It includes no URLs, video IDs, titles, cookies, or raw error messages; it is not stored or transmitted. Counters reset with the page. A connected script is not proof that replacement succeeded: check `replaced`, `datesFound`, and `sessionCacheHits`. Home, Subscriptions, and Watch Later were user-verified with 1.0.2. Version 1.0.3 adds session caching and smoother loading.
 
