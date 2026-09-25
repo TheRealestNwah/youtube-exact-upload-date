@@ -8,7 +8,8 @@ function createSessionDateCache(storage, now = Date.now, limit = 500) {
   let queue = Promise.resolve();
   function valid(id, entry) {
     if (typeof id !== "string" || !/^[A-Za-z0-9_-]{6,15}$/.test(id) || !entry ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(entry.date)) return false;
+        !/^\d{4}-\d{2}-\d{2}$/.test(entry.date) ||
+        ![undefined, "date", "upload", "published"].includes(entry.kind)) return false;
     const parsed = new Date(`${entry.date}T00:00:00Z`);
     return Number.isFinite(parsed.getTime()) &&
       parsed.toISOString().slice(0, 10) === entry.date &&
@@ -30,9 +31,12 @@ function createSessionDateCache(storage, now = Date.now, limit = 500) {
     return result;
   }
   return {
-    get: id => run(() => entries.get(id)?.date ?? null),
-    set: (id, date) => run(async () => {
-      const entry = { date, savedAt: now() };
+    get: id => run(() => {
+      const entry = entries.get(id);
+      return entry ? { date: entry.date, kind: entry.kind ?? "date" } : null;
+    }),
+    set: (id, metadata) => run(async () => {
+      const entry = { date: metadata?.date, kind: metadata?.kind, savedAt: now() };
       if (!valid(id, entry)) return false;
       entries.delete(id);
       entries.set(id, entry);
@@ -50,7 +54,7 @@ function createCacheListener(cache) {
     if (!sender?.tab || sender.tab.incognito ||
         !sender.url?.startsWith("https://www.youtube.com/")) return Promise.resolve(null);
     const result = message.type.endsWith("cache-get")
-      ? cache.get(message.videoId) : cache.set(message.videoId, message.date);
+      ? cache.get(message.videoId) : cache.set(message.videoId, message.metadata);
     return result.catch(() => null); // Cache availability must never block dates.
   };
 }

@@ -6,10 +6,10 @@
   "background": { "scripts": ["src/cache.js"] },
   "options_ui": { "page": "src/options.html" },
   "action": {
-    "default_title": "YouTube upload date status",
+    "default_title": "YouTube video date status",
     "default_popup": "src/status.html"
   },
-  "description": "Replaces YouTube's relative upload times with clear, exact dates.",
+  "description": "Replaces YouTube's relative video dates with exact upload or publication dates.",
   "homepage_url": "https://github.com/TheRealestNwah/youtube-exact-upload-date",
   "icons": {
     "32": "icons/icon.svg",
