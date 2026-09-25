@@ -55,6 +55,9 @@
   const MAX_CACHE_ENTRIES = 500;
 
   const dateCache = new Map();
+  const DATE_FORMAT_KEY = "dateFormat";
+  const DATE_FORMATS = new Set(["classic", "iso", "locale"]);
+  let dateFormat = "classic";
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
@@ -113,14 +116,28 @@
     return `${match[1]}-${match[2]}-${match[3]}`;
   }
 
-  function formatExactDate(value) {
+  function formatExactDate(value, style = dateFormat) {
     const normalized = normalizeCalendarDate(value);
     if (!normalized) {
       return null;
     }
 
+    if (style === "iso") return normalized;
     const [year, month, day] = normalized.split("-").map(Number);
+    if (style === "locale") {
+      return new Intl.DateTimeFormat(undefined, {
+        year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+      }).format(new Date(Date.UTC(year, month - 1, day)));
+    }
     return `${MONTHS[month - 1]} ${day} ${year}`;
+  }
+
+  function applyDateFormat(style) {
+    dateFormat = DATE_FORMATS.has(style) ? style : "classic";
+    for (const element of document.querySelectorAll("[data-youtube-exact-upload-calendar-date]")) {
+      setExactDate(element, element.dataset.youtubeExactUploadCalendarDate,
+        element.dataset.youtubeExactUploadDate);
+    }
   }
 
   function isRelativeTime(value) {
@@ -356,6 +373,7 @@
     element.setAttribute("aria-label", `Uploaded ${formatted}`);
     element.setAttribute("title", `Uploaded ${formatted}`);
     element.dataset.youtubeExactUploadDate = videoId;
+    element.dataset.youtubeExactUploadCalendarDate = date;
     delete element.dataset.youtubeExactUploadDatePending;
     return true;
   }
@@ -472,6 +490,17 @@
   }
 
   function start() {
+    const storage = globalThis.browser?.storage;
+    if (storage?.local) {
+      storage.local.get(DATE_FORMAT_KEY).then(
+        result => applyDateFormat(result?.[DATE_FORMAT_KEY]), () => {},
+      );
+      storage.onChanged?.addListener((changes, area) => {
+        if (area === "local" && changes[DATE_FORMAT_KEY]) {
+          applyDateFormat(changes[DATE_FORMAT_KEY].newValue);
+        }
+      });
+    }
     // Register before scanning so a startup failure can still be diagnosed.
     globalThis.browser?.runtime?.onMessage.addListener(message => {
       if (message?.type === "youtube-exact-upload-date:status") {

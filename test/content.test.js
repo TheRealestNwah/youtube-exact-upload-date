@@ -38,6 +38,13 @@ test("formats months with conventional abbreviations", () => {
   assert.equal(formatExactDate("2026-03-01"), "March 1 2026");
 });
 
+test("formats ISO and browser-language dates without changing the calendar day", () => {
+  assert.equal(formatExactDate("2026-09-22T23:59:59-07:00", "iso"), "2026-09-22");
+  assert.equal(formatExactDate("2026-09-22", "locale"),
+    new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" })
+      .format(new Date(Date.UTC(2026, 8, 22))));
+});
+
 test("recognizes YouTube long relative timestamps", () => {
   assert.equal(isRelativeTime("1 day ago"), true);
   assert.equal(isRelativeTime("Streamed 2 years ago"), true);

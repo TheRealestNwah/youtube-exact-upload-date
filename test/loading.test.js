@@ -5,12 +5,13 @@ const { readFileSync } = require("node:fs");
 const { JSDOM } = require("jsdom");
 const source = readFileSync(require.resolve("../src/content.js"), "utf8");
 
-function fixture({ cached = null, privateWindow = false, fetch } = {}) {
+function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "classic" } = {}) {
   const dom = new JSDOM('<yt-lockup-view-model><a href="/watch?v=LoadingVid1">Video</a><yt-content-metadata-view-model><span aria-label="3 hours ago">3h ago</span></yt-content-metadata-view-model></yt-lockup-view-model>', {
     url: "https://www.youtube.com/", runScripts: "outside-only",
   });
   const messages = [];
   let listener;
+  let storageListener;
   dom.window.browser = {
     extension: { inIncognitoContext: privateWindow },
     runtime: {
@@ -18,9 +19,14 @@ function fixture({ cached = null, privateWindow = false, fetch } = {}) {
       onMessage: { addListener: fn => { listener = fn; } },
       sendMessage: async message => { messages.push(message); return message.type.endsWith("cache-get") ? cached : true; },
     },
+    storage: {
+      local: { get: async () => ({ dateFormat }) },
+      onChanged: { addListener: fn => { storageListener = fn; } },
+    },
   };
   dom.window.fetch = fetch ?? (() => assert.fail("cached date must not fetch"));
   return { dom, messages, start: () => dom.window.eval(source),
+    changeFormat: value => storageListener({ dateFormat: { newValue: value } }, "local"),
     report: () => listener({ type: "youtube-exact-upload-date:status" }),
     span: dom.window.document.querySelector("span") };
 }
@@ -36,6 +42,19 @@ test("warm session cache replaces dates without a watch request", async () => {
     assert.equal(report.requests, 0);
     assert.equal(report.sessionCacheHits, 1);
     assert.equal(f.span.hasAttribute("data-youtube-exact-upload-date-loading"), false);
+  } finally { f.dom.window.close(); }
+});
+
+test("changing date format updates dates already shown on a card", async () => {
+  const f = fixture({ cached: "2026-09-23" });
+  try {
+    f.start();
+    await tick();
+    f.changeFormat("iso");
+    assert.equal(f.span.textContent, "2026-09-23");
+    assert.equal(f.span.getAttribute("aria-label"), "Uploaded 2026-09-23");
+    const report = await f.report();
+    assert.equal(report.requests, 0);
   } finally { f.dom.window.close(); }
 });
 
