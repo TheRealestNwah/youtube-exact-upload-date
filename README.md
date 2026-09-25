@@ -11,6 +11,7 @@ A focused Firefox extension that replaces YouTube's relative upload times—such
 - Uses no analytics, account API access, or third-party service.
 - Reuses exact dates across normal tabs and reloads during the current browser session.
 - Offers the original English date format, ISO dates, or dates in the browser's language from the add-on settings page.
+- Optionally shows the original relative time alongside the exact date.
 
 The extension reads the exact date already embedded in watch pages. For listing cards, where YouTube provides only relative text, it fetches the corresponding public watch page from YouTube with at most eight requests running at once. Up to 500 successful video-ID/date pairs are cached in browser-session memory for six hours, shared across normal tabs and reloads. They are not written to disk or synced, and disappear when the browser session ends. Private windows use only their existing per-tab memory cache, never the shared cache.
 

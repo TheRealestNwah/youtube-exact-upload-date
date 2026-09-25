@@ -56,8 +56,10 @@
 
   const dateCache = new Map();
   const DATE_FORMAT_KEY = "dateFormat";
+  const DISPLAY_MODE_KEY = "displayMode";
   const DATE_FORMATS = new Set(["classic", "iso", "locale"]);
   let dateFormat = "classic";
+  let displayMode = "exact";
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
@@ -132,12 +134,21 @@
     return `${MONTHS[month - 1]} ${day} ${year}`;
   }
 
-  function applyDateFormat(style) {
-    dateFormat = DATE_FORMATS.has(style) ? style : "classic";
+  function rerenderDates() {
     for (const element of document.querySelectorAll("[data-youtube-exact-upload-calendar-date]")) {
       setExactDate(element, element.dataset.youtubeExactUploadCalendarDate,
         element.dataset.youtubeExactUploadDate);
     }
+  }
+
+  function applyDateFormat(style) {
+    dateFormat = DATE_FORMATS.has(style) ? style : "classic";
+    rerenderDates();
+  }
+
+  function applyDisplayMode(mode) {
+    displayMode = mode === "both" ? "both" : "exact";
+    rerenderDates();
   }
 
   function isRelativeTime(value) {
@@ -369,9 +380,17 @@
       return false;
     }
 
-    element.textContent = formatted;
-    element.setAttribute("aria-label", `Uploaded ${formatted}`);
-    element.setAttribute("title", `Uploaded ${formatted}`);
+    if (!element.dataset.youtubeExactUploadRelativeTime) {
+      const relative = [element.textContent, element.getAttribute("aria-label")]
+        .find(isRelativeTime);
+      if (relative) element.dataset.youtubeExactUploadRelativeTime = relative.trim();
+    }
+    const relative = element.dataset.youtubeExactUploadRelativeTime;
+    element.textContent = displayMode === "both" && relative
+      ? `${formatted} · ${relative}` : formatted;
+    const accessible = `Uploaded ${formatted}${displayMode === "both" && relative ? `; ${relative}` : ""}`;
+    element.setAttribute("aria-label", accessible);
+    element.setAttribute("title", accessible);
     element.dataset.youtubeExactUploadDate = videoId;
     element.dataset.youtubeExactUploadCalendarDate = date;
     delete element.dataset.youtubeExactUploadDatePending;
@@ -492,12 +511,18 @@
   function start() {
     const storage = globalThis.browser?.storage;
     if (storage?.local) {
-      storage.local.get(DATE_FORMAT_KEY).then(
-        result => applyDateFormat(result?.[DATE_FORMAT_KEY]), () => {},
+      storage.local.get([DATE_FORMAT_KEY, DISPLAY_MODE_KEY]).then(
+        result => {
+          applyDateFormat(result?.[DATE_FORMAT_KEY]);
+          applyDisplayMode(result?.[DISPLAY_MODE_KEY]);
+        }, () => {},
       );
       storage.onChanged?.addListener((changes, area) => {
         if (area === "local" && changes[DATE_FORMAT_KEY]) {
           applyDateFormat(changes[DATE_FORMAT_KEY].newValue);
+        }
+        if (area === "local" && changes[DISPLAY_MODE_KEY]) {
+          applyDisplayMode(changes[DISPLAY_MODE_KEY].newValue);
         }
       });
     }
