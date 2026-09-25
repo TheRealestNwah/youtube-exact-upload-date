@@ -4,6 +4,7 @@
   "version": "1.0.4",
   "permissions": ["storage"],
   "background": { "scripts": ["src/cache.js"] },
+  "options_ui": { "page": "src/options.html" },
   "action": {
     "default_title": "YouTube upload date status",
     "default_popup": "src/status.html"

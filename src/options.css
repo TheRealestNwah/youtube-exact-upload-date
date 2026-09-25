@@ -1,0 +1,5 @@
+:root { color-scheme: light dark; font: menu; }
+body { max-width: 32rem; margin: 20px; color: CanvasText; background: Canvas; }
+h1 { font-size: 1.3rem; }
+label { display: block; margin-block: 1rem 0.4rem; }
+select { font: inherit; padding: 0.35rem; }
