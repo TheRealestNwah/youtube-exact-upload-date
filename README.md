@@ -2,6 +2,10 @@
 
 A focused Firefox extension that replaces YouTube's relative video dates—such as `1d ago` or `2 years ago`—with clear dates such as `Sept. 22 2026`.
 
+> **Built with AI.** OpenAI Codex assisted with the code, tests, icon and
+> documentation, directed by the maintainer. The extension itself contains no AI
+> features. See [AI-assisted development](#ai-assisted-development).
+
 ## What it does
 
 - Updates dates on video watch pages.
@@ -59,6 +63,13 @@ The extension runs only on `www.youtube.com`. It changes video-date text and req
 ## AI-assisted development
 
 OpenAI Codex assisted with code, tests, the icon, and documentation. The repository owner directed the product requirements and release decisions. The extension itself contains no AI features.
+
+## Support
+
+Everything on my GitHub is free of charge and open source. If you find it
+useful and want to leave a tip or buy me a coffee, you can do that at
+[ko-fi.com/morrowheat23](https://ko-fi.com/morrowheat23). It's appreciated,
+never expected.
 
 ## License
 
