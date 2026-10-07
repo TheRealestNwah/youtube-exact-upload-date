@@ -19,8 +19,7 @@ test("Safari manifest drops Gecko settings and sets a Safari minimum", () => {
   assert.deepEqual(safari.browser_specific_settings, { safari: { strict_min_version: SAFARI_MIN_VERSION } });
 });
 
-test("Safari manifest uses a non-persistent background and committed PNG icons", () => {
-  assert.equal(safari.background.persistent, false);
+test("Safari manifest keeps the background script and uses committed PNG icons", () => {
   assert.deepEqual(safari.background.scripts, manifest.background.scripts);
   const icons = [...Object.values(safari.icons), ...Object.values(safari.action.default_icon)];
   for (const icon of icons) {

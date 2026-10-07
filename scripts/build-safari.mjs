@@ -21,7 +21,6 @@ export function safariManifest(manifest) {
   const icons = Object.fromEntries(ICON_SIZES.map(size => [String(size), `icons/icon-${size}.png`]));
   result.icons = icons;
   result.action = { ...result.action, default_icon: { 16: icons[16], 32: icons[32], 48: icons[48], 64: icons[64] } };
-  result.background = { ...result.background, persistent: false };
   result.browser_specific_settings = { safari: { strict_min_version: SAFARI_MIN_VERSION } };
   return result;
 }
@@ -49,6 +48,13 @@ function buildApp(distDir, extensionDir, version) {
 
   const appProjectDir = join(projectDir, APP_NAME);
   const xcodeproj = readdirSync(appProjectDir).find(name => name.endsWith(".xcodeproj"));
+  // The converter derives the app target's ID from the app name instead of --bundle-identifier,
+  // which breaks Xcode's check that the extension's ID is prefixed by the app's.
+  const pbxproj = join(appProjectDir, xcodeproj, "project.pbxproj");
+  writeFileSync(pbxproj, readFileSync(pbxproj, "utf8").replace(
+    /PRODUCT_BUNDLE_IDENTIFIER = (?![^;]*\.Extension)[^;]+;/g,
+    `PRODUCT_BUNDLE_IDENTIFIER = "${BUNDLE_ID}";`,
+  ));
   const buildDir = join(distDir, "build");
   execFileSync("xcodebuild", [
     "-project", join(appProjectDir, xcodeproj),
