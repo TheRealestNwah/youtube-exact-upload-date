@@ -51,8 +51,10 @@ function buildApp(distDir, extensionDir, version) {
   // The converter derives the app target's ID from the app name instead of --bundle-identifier,
   // which breaks Xcode's check that the extension's ID is prefixed by the app's.
   const pbxproj = join(appProjectDir, xcodeproj, "project.pbxproj");
-  writeFileSync(pbxproj, readFileSync(pbxproj, "utf8").replace(
-    /PRODUCT_BUNDLE_IDENTIFIER = (?![^;]*\.Extension)[^;]+;/g,
+  const project = readFileSync(pbxproj, "utf8");
+  console.log("Bundle IDs before patch:", project.match(/PRODUCT_BUNDLE_IDENTIFIER = [^;]+;/g));
+  writeFileSync(pbxproj, project.replace(
+    /PRODUCT_BUNDLE_IDENTIFIER = (?![^;]*\.Extension)[^;]+;/g,
     `PRODUCT_BUNDLE_IDENTIFIER = "${BUNDLE_ID}";`,
   ));
   const buildDir = join(distDir, "build");
