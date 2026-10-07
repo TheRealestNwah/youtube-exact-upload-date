@@ -61,6 +61,8 @@ function buildApp(distDir, extensionDir, version) {
     "-alltargets", "-configuration", "Release",
     `SYMROOT=${buildDir}`,
     `MARKETING_VERSION=${version}`,
+    // The converter targets the build machine's macOS; Safari 16.4 also runs on macOS 12.
+    "MACOSX_DEPLOYMENT_TARGET=12.0",
     // Ad-hoc signature: enough to run locally with "Allow Unsigned Extensions".
     "CODE_SIGN_IDENTITY=-", "CODE_SIGN_STYLE=Manual", "DEVELOPMENT_TEAM=",
     "build",
