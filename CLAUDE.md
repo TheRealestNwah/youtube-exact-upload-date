@@ -14,6 +14,8 @@ npm run lint                # web-ext lint
 npm run test:firefox        # headless Firefox smoke test (scripts/firefox-smoke.mjs); CI runs this too
 npm run test:firefox:live   # same against live YouTube; run manually, not in CI
 npm run build               # web-ext build -> web-ext-artifacts/
+npm run build:safari        # Safari web-extension files -> dist/safari/extension
+npm run build:safari:app    # + Xcode convert/build/zip (macOS only); CI's Safari workflow runs this
 ```
 
 ## Layout
@@ -21,10 +23,12 @@ npm run build               # web-ext build -> web-ext-artifacts/
 - `src/content.js` / `content.css` — content script that rewrites dates on YouTube pages.
 - `src/cache.js` — date cache. `src/options.*` and `src/status.*` — options and status pages.
 - `manifest.json` — version is mirrored in `package.json`; `test/manifest.test.js` guards the manifest.
-- `test/` — `node --test` suites using jsdom. `scripts/` — Firefox smoke runner.
+- `test/` — `node --test` suites using jsdom. `scripts/` — Firefox smoke runner and Safari build (`build-safari.mjs`).
+- `safari/icons/` — PNG icons for Safari (rendered from `icons/icon.svg`; regenerate if the SVG changes).
 
 ## Gotchas
 
 - Keep the `manifest.json` and `package.json` versions in step when releasing.
 - `test/` and `scripts/` are excluded from lint and build via the `--ignore-files` lists in `package.json`; add new non-extension files there.
+- The Safari manifest is derived from `manifest.json` by `safariManifest()` in `scripts/build-safari.mjs`; don't hand-maintain a second manifest. `.github/workflows/safari.yml` builds the app on macOS and attaches it to published releases.
 - The live smoke test depends on YouTube's current markup and can fail for reasons unrelated to a change.
