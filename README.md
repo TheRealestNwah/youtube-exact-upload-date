@@ -86,9 +86,9 @@ npm run test:firefox:live
 
 The Firefox tests use disposable profiles and the real content script. `test:firefox` uses a local fixture, checks loading styles, and reloads to verify that cached dates require zero watch requests; `test:firefox:live` verifies that dates actually change on YouTube search results and requires network access. Set `FIREFOX_BINARY` if Firefox is not in its default location. Test-only diagnostics go to a local loopback server and are not included in the packaged extension.
 
-## Permissions and privacy
-
 The Chromium smoke test uses Playwright's bundled Chromium and an isolated profile. Run `npx playwright install chromium` once, then `npm run test:chromium`. All YouTube requests in this test are routed to fixtures; it checks real extension messaging, date replacement, settings changes, and shared session-cache reuse. CI also builds the Safari app on macOS; Safari runtime behavior still needs a manual check on a Mac.
+
+## Permissions and privacy
 
 The extension runs only on `www.youtube.com`. It changes video-date text and requests YouTube watch pages when it needs an exact date for a listing card. These same-site requests use the browser's existing YouTube cookies so that YouTube can return the page without a failing cross-site redirect. The extension does not read cookie values. Requests reveal the requested video IDs and ordinary connection information to YouTube, just like other YouTube page requests. The `storage` permission is used for the memory-only session cache of video IDs, exact dates, date types, and cache timestamps described above, plus your display preferences in local extension storage. No browsing history is saved to disk, no account details or cookies are cached, and nothing is sent to the extension author or any third party.
 
