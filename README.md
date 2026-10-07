@@ -1,6 +1,6 @@
 # Exact Upload Date for YouTube
 
-A focused Firefox extension that replaces YouTube's relative video dates—such as `1d ago` or `2 years ago`—with clear dates such as `Sept. 22 2026`.
+A focused extension for Firefox, Chromium browsers (Chrome, Edge, Brave, and others), and Safari on macOS that replaces YouTube's relative video dates—such as `1d ago` or `2 years ago`—with clear dates such as `Sept. 22 2026`.
 
 > **Built with AI.** OpenAI Codex assisted with the code, tests, icon and
 > documentation, directed by the maintainer. The extension itself contains no AI
@@ -23,9 +23,9 @@ The extension reads the exact date already embedded in watch pages. For listing 
 
 New lookups briefly display an ellipsis in a reserved date-width space, then reveal the exact date. The original relative text returns on failure or after 1.8 seconds if the lookup is still pending. The short reveal animation respects reduced-motion preferences. New videos still require a network request; repeat visits can avoid it. The script starts at document start to reduce the initial flash of relative text, though YouTube's own rendering can still cause a brief flash. Up to eight lookups run at once so a wide Home row can update in one wave, and watch-page markup is searched for the date before parsing the whole HTML document.
 
-## Install for development
+## Install in Firefox for development
 
-1. Run `npm install`.
+1. Run `npm ci`.
 2. Open `about:debugging` in Firefox.
 3. Choose **This Firefox**, then **Load Temporary Add-on**.
 4. Select this repository's `manifest.json`.
@@ -33,6 +33,19 @@ New lookups briefly display an ellipsis in a reserved date-width space, then rev
 Temporary add-ons disappear when Firefox closes. A permanent installation requires a signed build from Mozilla Add-ons.
 
 After updating a temporary add-on, reload it in `about:debugging` and refresh the YouTube tab. Check the add-on's site-access permissions if it cannot run on YouTube. Private windows separately require **Run in Private Windows: Allow** in the add-on's settings.
+
+## Install in Chromium browsers
+
+Requires Chromium 102 or later. The extension has no Chrome Web Store or Edge Add-ons listing yet; use a local unpacked installation.
+
+1. Run `npm ci` and `npm run build:chromium`.
+2. Open `chrome://extensions` in Chrome or Brave, or `edge://extensions` in Edge.
+3. Turn on **Developer mode**, choose **Load unpacked**, and select `dist/chromium/extension/`.
+4. Open or refresh YouTube. To change the date format, open the extension's **Details → Extension options**.
+
+After rebuilding, click **Reload** on the extension and refresh YouTube. Incognito/private windows require separate permission in the browser's extension settings.
+
+The build also creates `dist/chromium/youtube-exact-upload-date-chromium-<version>.zip`. You can extract this ZIP and load its folder unpacked, or use it for a future store submission. PR CI uploads Firefox and Chromium ZIPs in the **browser-packages** artifact and the macOS app in **safari-app**.
 
 ## Install in Safari (macOS)
 
@@ -62,7 +75,10 @@ The report contains aggregate counters, HTTP status codes, and allowlisted error
 npm test
 npm run lint
 npm run build
+npm run build:chromium
+npm run build:safari
 npm run test:firefox
+npm run test:chromium
 npm run test:firefox:live
 ```
 
@@ -71,6 +87,8 @@ npm run test:firefox:live
 The Firefox tests use disposable profiles and the real content script. `test:firefox` uses a local fixture, checks loading styles, and reloads to verify that cached dates require zero watch requests; `test:firefox:live` verifies that dates actually change on YouTube search results and requires network access. Set `FIREFOX_BINARY` if Firefox is not in its default location. Test-only diagnostics go to a local loopback server and are not included in the packaged extension.
 
 ## Permissions and privacy
+
+The Chromium smoke test uses Playwright's bundled Chromium and an isolated profile. Run `npx playwright install chromium` once, then `npm run test:chromium`. All YouTube requests in this test are routed to fixtures; it checks real extension messaging, date replacement, settings changes, and shared session-cache reuse. CI also builds the Safari app on macOS; Safari runtime behavior still needs a manual check on a Mac.
 
 The extension runs only on `www.youtube.com`. It changes video-date text and requests YouTube watch pages when it needs an exact date for a listing card. These same-site requests use the browser's existing YouTube cookies so that YouTube can return the page without a failing cross-site redirect. The extension does not read cookie values. Requests reveal the requested video IDs and ordinary connection information to YouTube, just like other YouTube page requests. The `storage` permission is used for the memory-only session cache of video IDs, exact dates, date types, and cache timestamps described above, plus your display preferences in local extension storage. No browsing history is saved to disk, no account details or cookies are cached, and nothing is sent to the extension author or any third party.
 

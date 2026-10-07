@@ -2,13 +2,15 @@
   "name": "youtube-exact-upload-date",
   "version": "1.2.0",
   "private": true,
-  "description": "Firefox and Safari extension that replaces YouTube relative video dates with exact dates.",
+  "description": "Firefox, Chromium and Safari extension that replaces YouTube relative video dates with exact dates.",
   "scripts": {
     "test": "node --test",
     "test:firefox": "node scripts/firefox-smoke.mjs",
     "test:firefox:live": "node scripts/firefox-smoke.mjs --live",
-    "lint": "web-ext lint --source-dir . --ignore-files test scripts safari dist package-lock.json .github README.md LICENSE",
-    "build": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest --ignore-files test scripts safari dist package-lock.json .github README.md LICENSE",
+    "test:chromium": "node scripts/chromium-smoke.mjs",
+    "lint": "web-ext lint --source-dir . --ignore-files test scripts safari dist .playwright-browsers AGENTS.md package-lock.json .github README.md LICENSE",
+    "build": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest --ignore-files test scripts safari dist .playwright-browsers AGENTS.md package-lock.json .github README.md LICENSE",
+    "build:chromium": "node scripts/build-chromium.mjs && web-ext build --source-dir dist/chromium/extension --artifacts-dir dist/chromium --overwrite-dest --filename youtube-exact-upload-date-chromium-{version}.zip",
     "check": "npm run test && npm run lint",
     "build:safari": "node scripts/build-safari.mjs",
     "build:safari:app": "node scripts/build-safari.mjs --xcode"
@@ -18,6 +20,7 @@
   },
   "devDependencies": {
     "jsdom": "^30.1.1",
+    "playwright": "^1.64.0",
     "web-ext": "^10.7.0"
   }
 }

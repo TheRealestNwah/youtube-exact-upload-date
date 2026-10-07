@@ -62,8 +62,14 @@ function createCacheListener(cache) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = { createSessionDateCache, createCacheListener };
 }
-if (typeof browser !== "undefined") {
-  browser.runtime.onMessage.addListener(createCacheListener(
-    createSessionDateCache(browser.storage.session),
-  ));
+const cacheApi = globalThis.browser ?? globalThis.chrome;
+if (cacheApi?.runtime) {
+  const listener = createCacheListener(createSessionDateCache(cacheApi.storage.session));
+  // Older Chromium releases require sendResponse + true for async messages.
+  cacheApi.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    const result = listener(message, sender);
+    if (globalThis.browser || result === undefined) return result;
+    Promise.resolve(result).then(sendResponse, () => sendResponse(null));
+    return true;
+  });
 }
