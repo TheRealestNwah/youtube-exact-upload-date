@@ -79,7 +79,7 @@
         isRelativeTime(element.getAttribute("aria-label")),
     );
     return {
-      version: globalThis.browser?.runtime?.getManifest().version ?? "test",
+      version: (globalThis.browser ?? globalThis.chrome)?.runtime?.getManifest().version ?? "test",
       ...diagnostics,
       relativeTimestamps: timestamps.length,
       linkedTimestamps: timestamps.filter(findVideoIdForMetadata).length,
@@ -349,7 +349,7 @@
   }
 
   async function sessionCache(operation, videoId, metadata) {
-    const api = globalThis.browser;
+    const api = globalThis.browser ?? globalThis.chrome;
     if (!api?.runtime?.sendMessage || api.extension?.inIncognitoContext) return null;
     let timer;
     try {
@@ -558,7 +558,7 @@
         }
       }, { rootMargin: "300px" });
     }
-    const storage = globalThis.browser?.storage;
+    const storage = (globalThis.browser ?? globalThis.chrome)?.storage;
     if (storage?.local) {
       storage.local.get([DATE_FORMAT_KEY, DISPLAY_MODE_KEY]).then(
         result => {
@@ -576,7 +576,8 @@
       });
     }
     // Register before scanning so a startup failure can still be diagnosed.
-    globalThis.browser?.runtime?.onMessage.addListener(message => {
+    const api = globalThis.browser ?? globalThis.chrome;
+    const messageListener = message => {
       if (message?.type === "youtube-exact-upload-date:status") {
         try {
           return Promise.resolve(getDiagnostics(document));
@@ -588,6 +589,12 @@
         return Promise.resolve(retryFailedLookups());
       }
       return undefined;
+    };
+    api?.runtime?.onMessage.addListener((message, sender, sendResponse) => {
+      const result = messageListener(message);
+      if (globalThis.browser || result === undefined) return result;
+      Promise.resolve(result).then(sendResponse, () => sendResponse(null));
+      return true;
     });
     scanSafely();
 

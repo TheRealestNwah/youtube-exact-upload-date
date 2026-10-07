@@ -45,7 +45,7 @@ if (typeof document !== "undefined" && document.querySelector("#refresh")) {
     refresh.disabled = true;
     retry.disabled = true;
     try {
-      const result = await readStatus(browser);
+      const result = await readStatus(globalThis.browser ?? globalThis.chrome);
       document.querySelector("#summary").textContent = result.summary;
       document.querySelector("#report").value = JSON.stringify(result.report, null, 2);
       retry.disabled = result.report.contentScript !== "connected" ||
@@ -61,7 +61,7 @@ if (typeof document !== "undefined" && document.querySelector("#refresh")) {
   retry.addEventListener("click", async () => {
     retry.disabled = true;
     try {
-      const count = await retryFailedDates(browser);
+      const count = await retryFailedDates(globalThis.browser ?? globalThis.chrome);
       await update();
       document.querySelector("#summary").textContent = `Retrying dates for ${count} failed video${count === 1 ? "" : "s"}.`;
     } catch {
