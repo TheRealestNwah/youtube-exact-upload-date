@@ -34,6 +34,20 @@ Temporary add-ons disappear when Firefox closes. A permanent installation requir
 
 After updating a temporary add-on, reload it in `about:debugging` and refresh the YouTube tab. Check the add-on's site-access permissions if it cannot run on YouTube. Private windows separately require **Run in Private Windows: Allow** in the add-on's settings.
 
+## Install in Safari (macOS)
+
+Requires Safari 16.4 or later. The Safari build is not signed with an Apple Developer ID, so Safari treats it as an unsigned developer extension.
+
+1. Download `youtube-exact-upload-date-safari-<version>.zip` from the [latest release](https://github.com/TheRealestNwah/youtube-exact-upload-date/releases/latest) and unzip it.
+2. Move **Exact Upload Date for YouTube.app** to **Applications**. Because the app is unsigned, macOS blocks the first launch: open it once, then go to **System Settings → Privacy & Security** and choose **Open Anyway**.
+3. In Safari, open **Settings → Advanced** and turn on **Show features for web developers**.
+4. Choose **Develop → Allow Unsigned Extensions** and enter your Mac password.
+5. Open **Settings → Extensions**, turn on **Exact Upload Date for YouTube**, and allow it on `www.youtube.com`.
+
+Safari turns **Allow Unsigned Extensions** off each time it quits, so repeat step 4 after restarting Safari.
+
+To build it yourself on a Mac with Xcode, run `npm run build:safari:app`; the zipped app is written to `dist/safari/`. `npm run build:safari` alone (any OS) writes just the converted web-extension files to `dist/safari/extension/`.
+
 ## Develop and verify
 
 ### Troubleshooting a page that still shows relative dates

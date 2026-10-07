@@ -7,9 +7,11 @@
     "test": "node --test",
     "test:firefox": "node scripts/firefox-smoke.mjs",
     "test:firefox:live": "node scripts/firefox-smoke.mjs --live",
-    "lint": "web-ext lint --source-dir . --ignore-files test scripts package-lock.json .github README.md LICENSE",
-    "build": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest --ignore-files test scripts package-lock.json .github README.md LICENSE",
-    "check": "npm run test && npm run lint"
+    "lint": "web-ext lint --source-dir . --ignore-files test scripts safari dist package-lock.json .github README.md LICENSE",
+    "build": "web-ext build --source-dir . --artifacts-dir web-ext-artifacts --overwrite-dest --ignore-files test scripts safari dist package-lock.json .github README.md LICENSE",
+    "check": "npm run test && npm run lint",
+    "build:safari": "node scripts/build-safari.mjs",
+    "build:safari:app": "node scripts/build-safari.mjs --xcode"
   },
   "engines": {
     "node": ">=20"
