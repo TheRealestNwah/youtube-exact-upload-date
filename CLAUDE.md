@@ -29,7 +29,6 @@ npm run build:safari:app    # + Xcode convert/build/zip (macOS only); CI's Safar
 ## Gotchas
 
 - Keep the `manifest.json` and `package.json` versions in step when releasing.
-- `AGENTS.md` (read by Codex) mirrors this file; change both together.
 - `test/` and `scripts/` are excluded from lint and build via the `--ignore-files` lists in `package.json`; add new non-extension files there.
 - The Safari manifest is derived from `manifest.json` by `safariManifest()` in `scripts/build-safari.mjs`; don't hand-maintain a second manifest. `.github/workflows/safari.yml` builds the app on macOS and attaches it to published releases.
 - The live smoke test depends on YouTube's current markup and can fail for reasons unrelated to a change.
