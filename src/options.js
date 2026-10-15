@@ -3,6 +3,7 @@
 const dateFormatSelect = document.querySelector("#date-format");
 const dateFormatPreview = document.querySelector("#preview");
 const displayModeSelect = document.querySelector("#display-mode");
+const showStreamedInput = document.querySelector("#show-streamed");
 const formats = new Set(["classic", "iso", "locale"]);
 const optionsApi = globalThis.browser ?? globalThis.chrome;
 
@@ -15,10 +16,14 @@ function updatePreview() {
   dateFormatPreview.textContent = `Example: ${example}`;
 }
 
-optionsApi.storage.local.get(["dateFormat", "displayMode"]).then(result => {
+optionsApi.storage.local.get(["dateFormat", "displayMode", "showStreamed"]).then(result => {
   dateFormatSelect.value = formats.has(result.dateFormat) ? result.dateFormat : "classic";
   displayModeSelect.value = result.displayMode === "both" ? "both" : "exact";
+  showStreamedInput.checked = result.showStreamed !== false;
   updatePreview();
+});
+showStreamedInput.addEventListener("change", () => {
+  optionsApi.storage.local.set({ showStreamed: showStreamedInput.checked });
 });
 displayModeSelect.addEventListener("change", () => {
   optionsApi.storage.local.set({ displayMode: displayModeSelect.value });
