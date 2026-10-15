@@ -58,9 +58,12 @@
   const failedLookups = new Set();
   const DATE_FORMAT_KEY = "dateFormat";
   const DISPLAY_MODE_KEY = "displayMode";
+  const SHOW_STREAMED_KEY = "showStreamed";
+  const STREAMED_PREFIX = /^streamed\s+/i;
   const DATE_FORMATS = new Set(["classic", "iso", "locale"]);
   let dateFormat = "classic";
   let displayMode = "exact";
+  let showStreamed = true;
   const requestQueue = [];
   let activeRequests = 0;
   let scanTimer = null;
@@ -155,6 +158,11 @@
 
   function applyDisplayMode(mode) {
     displayMode = mode === "both" ? "both" : "exact";
+    rerenderDates();
+  }
+
+  function applyShowStreamed(value) {
+    showStreamed = value !== false;
     rerenderDates();
   }
 
@@ -402,11 +410,15 @@
       if (relative) element.dataset.youtubeExactUploadRelativeTime = relative.trim();
     }
     const relative = element.dataset.youtubeExactUploadRelativeTime;
-    element.textContent = displayMode === "both" && relative
-      ? `${formatted} · ${relative}` : formatted;
+    const streamed = STREAMED_PREFIX.test(relative ?? "");
+    const shownRelative = streamed && !showStreamed ? relative.replace(STREAMED_PREFIX, "") : relative;
+    const both = displayMode === "both" && relative;
+    // "Both" mode already carries the word in the original relative text.
+    const shownDate = streamed && showStreamed && !both ? `Streamed ${formatted}` : formatted;
+    element.textContent = both ? `${formatted} · ${shownRelative}` : shownDate;
     const label = normalized.kind === "published" ? "Published" :
       normalized.kind === "upload" ? "Uploaded" : "Dated";
-    const accessible = `${label} ${formatted}${displayMode === "both" && relative ? `; ${relative}` : ""}`;
+    const accessible = `${label} ${formatted}${both ? `; ${shownRelative}` : ""}`;
     element.setAttribute("aria-label", accessible);
     element.setAttribute("title", accessible);
     element.dataset.youtubeExactUploadDate = videoId;
@@ -560,10 +572,11 @@
     }
     const storage = (globalThis.browser ?? globalThis.chrome)?.storage;
     if (storage?.local) {
-      storage.local.get([DATE_FORMAT_KEY, DISPLAY_MODE_KEY]).then(
+      storage.local.get([DATE_FORMAT_KEY, DISPLAY_MODE_KEY, SHOW_STREAMED_KEY]).then(
         result => {
           applyDateFormat(result?.[DATE_FORMAT_KEY]);
           applyDisplayMode(result?.[DISPLAY_MODE_KEY]);
+          applyShowStreamed(result?.[SHOW_STREAMED_KEY]);
         }, () => {},
       );
       storage.onChanged?.addListener((changes, area) => {
@@ -572,6 +585,9 @@
         }
         if (area === "local" && changes[DISPLAY_MODE_KEY]) {
           applyDisplayMode(changes[DISPLAY_MODE_KEY].newValue);
+        }
+        if (area === "local" && changes[SHOW_STREAMED_KEY]) {
+          applyShowStreamed(changes[SHOW_STREAMED_KEY].newValue);
         }
       });
     }

@@ -5,8 +5,8 @@ const { readFileSync } = require("node:fs");
 const { JSDOM } = require("jsdom");
 const source = readFileSync(require.resolve("../src/content.js"), "utf8");
 
-function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "classic", displayMode = "exact" } = {}) {
-  const dom = new JSDOM('<yt-lockup-view-model><a href="/watch?v=LoadingVid1">Video</a><yt-content-metadata-view-model><span aria-label="3 hours ago">3h ago</span></yt-content-metadata-view-model></yt-lockup-view-model>', {
+function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "classic", displayMode = "exact", showStreamed, relative = "3h ago" } = {}) {
+  const dom = new JSDOM(`<yt-lockup-view-model><a href="/watch?v=LoadingVid1">Video</a><yt-content-metadata-view-model><span aria-label="3 hours ago">${relative}</span></yt-content-metadata-view-model></yt-lockup-view-model>`, {
     url: "https://www.youtube.com/", runScripts: "outside-only",
   });
   const messages = [];
@@ -21,13 +21,14 @@ function fixture({ cached = null, privateWindow = false, fetch, dateFormat = "cl
         ? (typeof cached === "string" ? { date: cached, kind: "upload" } : cached) : true; },
     },
     storage: {
-      local: { get: async () => ({ dateFormat, displayMode }) },
+      local: { get: async () => ({ dateFormat, displayMode, showStreamed }) },
       onChanged: { addListener: fn => { storageListener = fn; } },
     },
   };
   dom.window.fetch = fetch ?? (() => assert.fail("cached date must not fetch"));
   return { dom, messages, start: () => dom.window.eval(source),
     changeFormat: value => storageListener({ dateFormat: { newValue: value } }, "local"),
+    changeStreamed: value => storageListener({ showStreamed: { newValue: value } }, "local"),
     changeDisplay: value => storageListener({ displayMode: { newValue: value } }, "local"),
     report: () => listener({ type: "youtube-exact-upload-date:status" }),
     span: dom.window.document.querySelector("span") };
@@ -207,4 +208,28 @@ test("a wide uncached Home row starts eight bounded lookups together", async () 
     assert.equal([...dom.window.document.querySelectorAll("yt-content-metadata-view-model span")]
       .filter(element => element.textContent === "Sept. 23 2026").length, 16);
   } finally { dom.window.close(); }
+});
+
+test("streamed prefix is on by default and can be toggled", async () => {
+  const f = fixture({ cached: "2026-09-23", relative: "Streamed 3 hours ago" });
+  try {
+    f.start();
+    await tick();
+    assert.equal(f.span.textContent, "Streamed Sept. 23 2026");
+    f.changeStreamed(false);
+    assert.equal(f.span.textContent, "Sept. 23 2026");
+    f.changeStreamed(true);
+    assert.equal(f.span.textContent, "Streamed Sept. 23 2026");
+  } finally { f.dom.window.close(); }
+});
+
+test("streamed toggle also applies to the relative part in combined display", async () => {
+  const f = fixture({ cached: "2026-09-23", displayMode: "both", showStreamed: false, relative: "Streamed 3 hours ago" });
+  try {
+    f.start();
+    await tick();
+    assert.equal(f.span.textContent, "Sept. 23 2026 · 3 hours ago");
+    f.changeStreamed(true);
+    assert.equal(f.span.textContent, "Sept. 23 2026 · Streamed 3 hours ago");
+  } finally { f.dom.window.close(); }
 });
