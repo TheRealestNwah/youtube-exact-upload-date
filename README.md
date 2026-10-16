@@ -23,6 +23,10 @@ The extension reads the exact date already embedded in watch pages. For listing 
 
 New lookups briefly display an ellipsis in a reserved date-width space, then reveal the exact date. The original relative text returns on failure or after 1.8 seconds if the lookup is still pending. The short reveal animation respects reduced-motion preferences. New videos still require a network request; repeat visits can avoid it. The script starts at document start to reduce the initial flash of relative text, though YouTube's own rendering can still cause a brief flash. Up to eight lookups run at once so a wide Home row can update in one wave, and watch-page markup is searched for the date before parsing the whole HTML document.
 
+## Install in Firefox
+
+Install from [Mozilla Add-ons](https://addons.mozilla.org/en-US/firefox/addon/exact-upload-date-for-youtube/). Listed versions are signed by Mozilla and update automatically; a new release can take a while to clear Mozilla's review.
+
 ## Install in Firefox for development
 
 1. Run `npm ci`.
