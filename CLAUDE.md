@@ -32,3 +32,17 @@ npm run build:safari:app    # + Xcode convert/build/zip (macOS only); CI's Safar
 - `test/` and `scripts/` are excluded from lint and build via the `--ignore-files` lists in `package.json`; add new non-extension files there.
 - The Safari manifest is derived from `manifest.json` by `safariManifest()` in `scripts/build-safari.mjs`; don't hand-maintain a second manifest. `.github/workflows/safari.yml` builds the app on macOS and attaches it to published releases.
 - The live smoke test depends on YouTube's current markup and can fail for reasons unrelated to a change.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in this repo's GitHub Issues, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
